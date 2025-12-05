@@ -5,7 +5,8 @@ import { revalidatePath } from "next/cache";
 import db from "./db";
 import { getSession } from "./session";
 import { z } from "zod";
-import { createProjectActionSchema, createIssueSchema } from "./validators";
+import { createProjectActionSchema, createIssueSchema, inviteMemberSchema } from "./validators";
+import { randomBytes } from "crypto";
 
 export async function createProject(values: z.infer<typeof createProjectActionSchema>) {
     const user = await getSession();
@@ -61,6 +62,15 @@ export async function createProject(values: z.infer<typeof createProjectActionSc
                 data: statusesToCreate,
             });
 
+            await prisma.activityLog.create({
+                data: {
+                    organizationId: newProject.organizationId,
+                    actorId: user.id,
+                    type: "PROJECT_CREATED",
+                    message: `Project '${newProject.name}' was created`,
+                }
+            });
+
             return newProject;
         });
 
@@ -92,12 +102,18 @@ export async function updateIssueStatus(issueId: string, statusId: string, orgSl
     try {
         const issue = await db.issue.findUnique({
             where: { id: issueId },
-            include: { project: true }
+            include: { project: true, status: true }
         });
 
         if (!issue) {
              return { success: false, error: "Issue not found" };
         }
+        
+        const newStatus = await db.status.findUnique({ where: { id: statusId }});
+        if (!newStatus) {
+            return { success: false, error: "Status not found" };
+        }
+
 
         const orgMember = await db.organizationMember.findFirst({
             where: {
@@ -115,6 +131,16 @@ export async function updateIssueStatus(issueId: string, statusId: string, orgSl
             data: { statusId },
         });
 
+        await db.activityLog.create({
+            data: {
+                organizationId: issue.project.organizationId,
+                issueId: issue.id,
+                actorId: user.id,
+                type: 'STATUS_CHANGED',
+                message: `Status changed from ${issue.status.name} to ${newStatus.name}`
+            }
+        })
+
         revalidatePath(`/${orgSlug}/${projectKey}/board`);
         revalidatePath(`/${orgSlug}/${projectKey}`);
         
@@ -125,7 +151,7 @@ export async function updateIssueStatus(issueId: string, statusId: string, orgSl
     }
 }
 
-export async function createComment(issueId: string, body: string, orgSlug: string, projectKey: string) {
+export async function createComment(issueId: string, body: string, orgSlug: string, projectKey: string, mentionedUserIds: string[] = []) {
     const user = await getSession();
     if (!user) {
         return { success: false, error: "Not authenticated" };
@@ -166,26 +192,61 @@ export async function createComment(issueId: string, body: string, orgSlug: stri
                 author: true,
             }
         });
+
+        const activityLogs = [];
+
+        // Log comment activity
+        const commentActivity = await db.activityLog.create({
+            data: {
+                organizationId: issue.project.organizationId,
+                issueId: issue.id,
+                actorId: user.id,
+                type: 'COMMENT_ADDED',
+                message: `commented on issue ${issue.key}`,
+                metadata: { body }
+            }
+        });
+        activityLogs.push(commentActivity);
+
+        // If one user mentioned, assign them
+        if (mentionedUserIds.length === 1) {
+            const assigneeId = mentionedUserIds[0];
+            if (issue.assigneeId !== assigneeId) {
+                await db.issue.update({ where: { id: issue.id }, data: { assigneeId }});
+                const assignee = await db.user.findUnique({ where: { id: assigneeId } });
+                if (assignee) {
+                    const assignActivity = await db.activityLog.create({
+                        data: {
+                            organizationId: issue.project.organizationId,
+                            issueId: issue.id,
+                            actorId: user.id,
+                            type: 'ASSIGNEE_CHANGED',
+                            message: `assigned this issue to ${assignee.name} via comment`
+                        }
+                    });
+                    activityLogs.push(assignActivity);
+                }
+            }
+        }
         
         revalidatePath(`/api/issues/${issueId}`);
         revalidatePath(`/${orgSlug}/${projectKey}/board`);
         
-        return { success: true, comment };
+        return { success: true, comment, activityLogs };
     } catch (error) {
         console.error("Failed to create comment:", error);
         return { success: false, error: error instanceof Error ? error.message : "Unknown error" };
     }
 }
 
-export async function updateIssue(issueId: string, data: any, orgSlug: string, projectKey: string) {
+export async function updateIssue(issueId: string, data: any, orgSlug: string, projectKey: string, activityMessage?: string) {
     const user = await getSession();
     if (!user) {
         return { success: false, error: "Not authenticated" };
     }
 
     try {
-        // Validation can be more granular here based on `data`
-        const issue = await db.issue.findUnique({ where: { id: issueId }, include: { project: true } });
+        const issue = await db.issue.findUnique({ where: { id: issueId }, include: { project: true, assignee: true } });
         if (!issue) return { success: false, error: "Issue not found" };
 
         const orgMember = await db.organizationMember.findFirst({
@@ -198,11 +259,31 @@ export async function updateIssue(issueId: string, data: any, orgSlug: string, p
             data,
         });
 
+        let activityLog = null;
+        if ('assigneeId' in data) {
+            const newAssignee = data.assigneeId ? await db.user.findUnique({ where: { id: data.assigneeId }}) : null;
+            const oldAssigneeName = issue.assignee?.name || 'Unassigned';
+            const newAssigneeName = newAssignee?.name || 'Unassigned';
+            
+            if(oldAssigneeName !== newAssigneeName) {
+                activityLog = await db.activityLog.create({
+                    data: {
+                        organizationId: issue.project.organizationId,
+                        issueId: issue.id,
+                        actorId: user.id,
+                        type: 'ASSIGNEE_CHANGED',
+                        message: activityMessage || `changed the assignee from ${oldAssigneeName} to ${newAssigneeName}`
+                    }
+                });
+            }
+        }
+
+
         revalidatePath(`/${orgSlug}/${projectKey}/board`);
         revalidatePath(`/${orgSlug}/${projectKey}/backlog`);
         revalidatePath(`/api/issues/${issueId}`);
         
-        return { success: true, issue: updatedIssue };
+        return { success: true, issue: updatedIssue, activityLog };
 
     } catch (error) {
         console.error("Failed to update issue:", error);
@@ -249,6 +330,19 @@ export async function createIssue(values: z.infer<typeof createIssueSchema>, org
                 assignee: true,
                 reporter: true,
                 status: true,
+                _count: {
+                    select: { comments: true }
+                }
+            }
+        });
+
+        await db.activityLog.create({
+            data: {
+                organizationId: project.organizationId,
+                issueId: issue.id,
+                actorId: user.id,
+                type: "ISSUE_CREATED",
+                message: `created issue ${issue.key}`,
             }
         });
 
@@ -265,3 +359,70 @@ export async function createIssue(values: z.infer<typeof createIssueSchema>, org
         return { success: false, error: error instanceof Error ? error.message : "An unknown error occurred." };
     }
 }
+
+export async function inviteMember(values: z.infer<typeof inviteMemberSchema>) {
+    const user = await getSession();
+    if (!user) {
+        return { success: false, error: "Not authenticated" };
+    }
+
+    try {
+        const validatedValues = inviteMemberSchema.parse(values);
+
+        const org = await db.organization.findUnique({
+            where: { id: validatedValues.organizationId },
+            include: { members: { include: { user: true } } }
+        });
+
+        if (!org) {
+            return { success: false, error: "Organization not found" };
+        }
+
+        const currentUserMember = org.members.find(m => m.userId === user.id);
+        if (!currentUserMember || !['OWNER', 'ADMIN'].includes(currentUserMember.role)) {
+            return { success: false, error: "You do not have permission to invite members." };
+        }
+
+        if (org.members.some(m => m.user.email === validatedValues.email)) {
+            return { success: false, error: "This user is already a member of the organization." };
+        }
+
+        // TODO: In a real app, you would send an email with the link.
+        // For now, we'll just create the invitation and log the link.
+        const token = randomBytes(32).toString("hex");
+        const expires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+
+        const invitation = await db.invitation.create({
+            data: {
+                email: validatedValues.email,
+                organizationId: validatedValues.organizationId,
+                token,
+                expires
+            }
+        });
+
+        const inviteLink = `/invite/${token}`;
+        console.log(`Generated invite link for ${validatedValues.email}: ${inviteLink}`);
+        
+        await db.activityLog.create({
+            data: {
+                organizationId: org.id,
+                actorId: user.id,
+                type: 'MEMBER_INVITED',
+                message: `Invited ${validatedValues.email} to the organization.`
+            }
+        });
+
+        revalidatePath(`/`, 'layout');
+
+        return { success: true, message: `Invitation sent to ${validatedValues.email}.` };
+
+    } catch (error) {
+        console.error("Failed to invite member:", error);
+        if (error instanceof z.ZodError) {
+             return { success: false, error: "Invalid data provided." };
+        }
+        return { success: false, error: "An unknown error occurred." };
+    }
+}
+

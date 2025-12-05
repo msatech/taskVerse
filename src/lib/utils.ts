@@ -1,8 +1,8 @@
 
 import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
-import { ArrowDown, ArrowUp, Bug, CheckCircle, ChevronsUp, Type } from "lucide-react";
-import type { Issue } from "@prisma/client";
+import { ArrowDown, ArrowUp, Bug, CheckCircle, ChevronsUp, Type, User, Users, MessageSquare, PlusCircle } from "lucide-react";
+import type { Issue, ActivityLog } from "@prisma/client";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
@@ -39,4 +39,23 @@ export const getPriorityColorClass = (priority: Issue['priority']) => {
         CRITICAL: "text-red-500",
     };
     return priorityColors[priority];
+}
+
+export function getActivityLogIcon(type: string): React.ElementType {
+    switch (type) {
+        case "ASSIGNEE_CHANGED":
+            return User;
+        case "MEMBER_INVITED":
+            return Users;
+        case "COMMENT_ADDED":
+            return MessageSquare;
+        case "ISSUE_CREATED":
+            return PlusCircle;
+        default:
+            return CheckCircle;
+    }
+}
+
+export function getActivityLogMessage(log: ActivityLog): string {
+    return log.message;
 }

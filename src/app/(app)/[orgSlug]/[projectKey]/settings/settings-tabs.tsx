@@ -1,0 +1,215 @@
+
+'use client';
+
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Project, Organization, OrganizationMember, User as PrismaUser } from "@prisma/client";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { PlaceHolderImages } from "@/lib/placeholder-images";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { inviteMemberSchema, type InviteMemberFormValues } from "@/lib/validators";
+import { Form, FormControl, FormField, FormItem, FormMessage } from "@/components/ui/form";
+import { useTransition } from "react";
+import { inviteMember } from "@/lib/actions";
+import { useToast } from "@/hooks/use-toast";
+import { Loader2, UserPlus } from "lucide-react";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
+
+type MemberWithUser = OrganizationMember & { user: PrismaUser };
+
+type SettingsTabsProps = {
+    project: Project & { lead: PrismaUser };
+    organization: Organization;
+    members: MemberWithUser[];
+    currentUserRole: string;
+}
+
+export function SettingsTabs({ project, organization, members, currentUserRole }: SettingsTabsProps) {
+    const avatarPlaceholder = PlaceHolderImages.find((img) => img.id === "user-avatar");
+    const [isPending, startTransition] = useTransition();
+    const { toast } = useToast();
+
+    const form = useForm<InviteMemberFormValues>({
+        resolver: zodResolver(inviteMemberSchema),
+        defaultValues: {
+            email: "",
+            organizationId: organization.id,
+        },
+    });
+
+    async function onSubmit(data: InviteMemberFormValues) {
+        startTransition(async () => {
+            const result = await inviteMember(data);
+            if (result.success) {
+                toast({ title: "Success", description: result.message });
+                form.reset();
+            } else {
+                toast({ variant: "destructive", title: "Error", description: result.error });
+            }
+        });
+    }
+
+    const canManageMembers = ['OWNER', 'ADMIN'].includes(currentUserRole);
+
+    return (
+        <Tabs defaultValue="general">
+            <TabsList>
+                <TabsTrigger value="general">General</TabsTrigger>
+                <TabsTrigger value="members">Members</TabsTrigger>
+                <TabsTrigger value="danger">Danger Zone</TabsTrigger>
+            </TabsList>
+            <TabsContent value="general">
+                <Card>
+                    <CardHeader>
+                        <CardTitle>General Settings</CardTitle>
+                        <CardDescription>Manage your project details and configuration.</CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                        <div className="space-y-2">
+                            <Label htmlFor="projectName">Project Name</Label>
+                            <Input id="projectName" defaultValue={project.name} />
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="projectKey">Project Key</Label>
+                            <Input id="projectKey" defaultValue={project.key} disabled />
+                        </div>
+                         <div className="space-y-2">
+                            <Label htmlFor="projectLead">Project Lead</Label>
+                             <Select defaultValue={project.leadId}>
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Select project lead" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {members.map(member => (
+                                        <SelectItem key={member.userId} value={member.userId}>{member.user.name}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                             </Select>
+                        </div>
+                        <Button>Save Changes</Button>
+                    </CardContent>
+                </Card>
+            </TabsContent>
+            <TabsContent value="members">
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Members</CardTitle>
+                        <CardDescription>Manage who has access to this project's organization.</CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-6">
+                        {canManageMembers && (
+                             <Card>
+                                <CardHeader>
+                                    <CardTitle>Invite New Member</CardTitle>
+                                </CardHeader>
+                                <CardContent>
+                                    <Form {...form}>
+                                        <form onSubmit={form.handleSubmit(onSubmit)} className="flex items-start gap-4">
+                                            <FormField
+                                                control={form.control}
+                                                name="email"
+                                                render={({ field }) => (
+                                                    <FormItem className="flex-1">
+                                                         <Label htmlFor="email" className="sr-only">Email</Label>
+                                                        <FormControl>
+                                                            <Input id="email" placeholder="new.member@example.com" {...field} />
+                                                        </FormControl>
+                                                        <FormMessage />
+                                                    </FormItem>
+                                                )}
+                                            />
+                                            <Button type="submit" disabled={isPending}>
+                                                {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <UserPlus className="h-4 w-4" />}
+                                                <span>Invite</span>
+                                            </Button>
+                                        </form>
+                                    </Form>
+                                </CardContent>
+                             </Card>
+                        )}
+                       
+                        <div>
+                             <h3 className="text-lg font-medium mb-4">Organization Members</h3>
+                             <Table>
+                                <TableHeader>
+                                    <TableRow>
+                                    <TableHead>Member</TableHead>
+                                    <TableHead>Role</TableHead>
+                                    <TableHead className="text-right">Actions</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {members.map(member => (
+                                        <TableRow key={member.id}>
+                                            <TableCell>
+                                                <div className="flex items-center gap-4">
+                                                    <Avatar className="h-9 w-9">
+                                                        <AvatarImage src={member.user.avatarUrl || avatarPlaceholder?.imageUrl} />
+                                                        <AvatarFallback>{member.user.name?.[0].toUpperCase()}</AvatarFallback>
+                                                    </Avatar>
+                                                    <div>
+                                                        <p className="font-medium">{member.user.name}</p>
+                                                        <p className="text-sm text-muted-foreground">{member.user.email}</p>
+                                                    </div>
+                                                </div>
+                                            </TableCell>
+                                            <TableCell>
+                                                {canManageMembers && member.user.id !== organization.ownerId ? (
+                                                     <Select defaultValue={member.role}>
+                                                        <SelectTrigger className="w-[120px]">
+                                                            <SelectValue />
+                                                        </SelectTrigger>
+                                                        <SelectContent>
+                                                            <SelectItem value="OWNER">Owner</SelectItem>
+                                                            <SelectItem value="ADMIN">Admin</SelectItem>
+                                                            <SelectItem value="MEMBER">Member</SelectItem>
+                                                        </SelectContent>
+                                                     </Select>
+                                                ) : (
+                                                    <span className="text-sm">{member.role}</span>
+                                                )}
+                                            </TableCell>
+                                            <TableCell className="text-right">
+                                                 {canManageMembers && member.user.id !== organization.ownerId && (
+                                                     <Button variant="outline" size="sm">Remove</Button>
+                                                 )}
+                                            </TableCell>
+                                        </TableRow>
+                                    ))}
+                                </TableBody>
+                            </Table>
+                        </div>
+                    </CardContent>
+                </Card>
+            </TabsContent>
+            <TabsContent value="danger">
+                 <Card className="border-destructive">
+                    <CardHeader>
+                        <CardTitle className="text-destructive">Danger Zone</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                       <div className="p-4 rounded-md border border-destructive/50 bg-destructive/5">
+                            <h4 className="font-semibold">Delete Project</h4>
+                            <p className="text-sm text-muted-foreground mt-1">
+                                Permanently delete this project, its issues, and all associated data. This action cannot be undone.
+                            </p>
+                             <Button variant="destructive" className="mt-4">Delete Project</Button>
+                       </div>
+                    </CardContent>
+                </Card>
+            </TabsContent>
+        </Tabs>
+    );
+}

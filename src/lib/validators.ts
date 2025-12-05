@@ -46,8 +46,14 @@ export const createIssueSchema = z.object({
   projectId: z.string().min(1, "Project is required."),
 });
 
+export const inviteMemberSchema = z.object({
+    email: z.string().email({ message: "Please enter a valid email." }),
+    organizationId: z.string(),
+});
+
 
 export type SignupFormValues = z.infer<typeof signupSchema>;
 export type LoginFormValues = z.infer<typeof loginSchema>;
 export type CreateProjectFormValues = z.infer<typeof createProjectFormSchema>;
 export type CreateIssueFormValues = z.infer<typeof createIssueSchema>;
+export type InviteMemberFormValues = z.infer<typeof inviteMemberSchema>;
