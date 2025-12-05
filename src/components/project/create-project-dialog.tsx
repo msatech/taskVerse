@@ -51,8 +51,23 @@ export function CreateProjectDialog({ organization, open, onOpenChange }: Create
     },
   });
   
-  const projectKey = form.watch("key");
-  form.watch("name");
+  const projectName = form.watch("name");
+
+  // Suggest a project key from the name
+  useState(() => {
+    if (projectName) {
+      const suggestedKey = projectName
+        .split(" ")
+        .map((word) => word[0])
+        .join("")
+        .toUpperCase()
+        .slice(0, 5);
+      if (suggestedKey && form.getValues("key") === "") {
+        form.setValue("key", suggestedKey);
+      }
+    }
+  });
+
 
   async function onSubmit(data: CreateProjectFormValues) {
     setIsLoading(true);
@@ -61,6 +76,7 @@ export function CreateProjectDialog({ organization, open, onOpenChange }: Create
           ...data,
           organizationId: organization.id
       });
+
       if (result.success && result.project) {
         toast({
           title: "Project Created",
@@ -81,6 +97,7 @@ export function CreateProjectDialog({ organization, open, onOpenChange }: Create
       });
     } finally {
       setIsLoading(false);
+      form.reset();
     }
   }
 
@@ -118,7 +135,7 @@ export function CreateProjectDialog({ organization, open, onOpenChange }: Create
                     <Input placeholder="e.g., MKT" {...field} onChange={(e) => field.onChange(e.target.value.toUpperCase())} />
                   </FormControl>
                   <FormDescription>
-                    This is a short, unique identifier for your project. e.g., {organization.slug}/{projectKey || "MKT"}
+                    This is a short, unique identifier for your project. e.g., {organization.slug}/{form.getValues("key") || "MKT"}
                   </FormDescription>
                   <FormMessage />
                 </FormItem>
@@ -130,30 +147,32 @@ export function CreateProjectDialog({ organization, open, onOpenChange }: Create
                 render={({field}) => (
                     <FormItem>
                         <FormLabel>Project Type</FormLabel>
-                        <RadioGroup 
-                            onValueChange={field.onChange}
-                            defaultValue={field.value}
-                            className="flex space-x-4"
-                        >
-                            <FormItem className="flex items-center space-x-2 space-y-0">
-                                <FormControl>
-                                    <RadioGroupItem value="KANBAN" />
-                                </FormControl>
-                                <FormLabel className="font-normal">Kanban</FormLabel>
-                            </FormItem>
-                             <FormItem className="flex items-center space-x-2 space-y-0">
-                                <FormControl>
-                                    <RadioGroupItem value="SCRUM" />
-                                </FormControl>
-                                <FormLabel className="font-normal">Scrum</FormLabel>
-                            </FormItem>
-                        </RadioGroup>
+                         <FormControl>
+                            <RadioGroup 
+                                onValueChange={field.onChange}
+                                defaultValue={field.value}
+                                className="flex pt-2 gap-4"
+                            >
+                                <FormItem className="flex items-center space-x-2 space-y-0">
+                                    <FormControl>
+                                        <RadioGroupItem value="KANBAN" id="kanban" />
+                                    </FormControl>
+                                    <Label htmlFor="kanban" className="font-normal cursor-pointer">Kanban</Label>
+                                </FormItem>
+                                <FormItem className="flex items-center space-x-2 space-y-0">
+                                    <FormControl>
+                                        <RadioGroupItem value="SCRUM" id="scrum" />
+                                    </FormControl>
+                                    <Label htmlFor="scrum" className="font-normal cursor-pointer">Scrum</Label>
+                                </FormItem>
+                            </RadioGroup>
+                        </FormControl>
                     </FormItem>
                 )}
             />
 
-            <DialogFooter>
-              <Button variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
+            <DialogFooter className="pt-4">
+              <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
               <Button type="submit" disabled={isLoading}>
                 {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Create Project

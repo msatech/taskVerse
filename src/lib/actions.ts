@@ -5,22 +5,16 @@ import { revalidatePath } from "next/cache";
 import db from "./db";
 import { getSession } from "./session";
 import { z } from "zod";
+import { createProjectActionSchema } from "./validators";
 
-export const createProjectSchema = z.object({
-    name: z.string().min(2, "Project name must be at least 2 characters long."),
-    key: z.string().min(2, "Project key must be at least 2 characters long.").max(5, "Project key must be 5 characters or less.").regex(/^[A-Z0-9]+$/, "Key must be uppercase letters and numbers."),
-    type: z.enum(["KANBAN", "SCRUM"]),
-    organizationId: z.string(),
-});
-
-export async function createProject(values: z.infer<typeof createProjectSchema>) {
+export async function createProject(values: z.infer<typeof createProjectActionSchema>) {
     const user = await getSession();
     if (!user) {
         return { success: false, error: "Not authenticated" };
     }
 
     try {
-        const validatedValues = createProjectSchema.parse(values);
+        const validatedValues = createProjectActionSchema.parse(values);
 
         // Check for unique project key within the organization
         const existingProject = await db.project.findFirst({
@@ -57,8 +51,8 @@ export async function createProject(values: z.infer<typeof createProjectSchema>)
             } else { // KANBAN
                 statusesToCreate = [
                     { name: 'Backlog', category: 'TODO', order: 1, projectId: newProject.id },
-                    { name: 'In Progress', category: 'IN_PROGRESS', order: 2, projectId: newProject.id },
-                    { name: 'In Review', category: 'IN_PROGRESS', order: 3, projectId: newProject.id },
+                    { name: 'Selected for Development', category: 'TODO', order: 2, projectId: newProject.id },
+                    { name: 'In Progress', category: 'IN_PROGRESS', order: 3, projectId: newProject.id },
                     { name: 'Done', category: 'DONE', order: 4, projectId: newProject.id },
                 ];
             }
@@ -72,9 +66,11 @@ export async function createProject(values: z.infer<typeof createProjectSchema>)
 
         const org = await db.organization.findUnique({ where: { id: project.organizationId } });
 
-        revalidatePath(`/${org?.slug}/${project.key}`);
-        revalidatePath('/dashboard');
-
+        if (org) {
+            revalidatePath(`/${org.slug}/${project.key}`);
+            revalidatePath('/dashboard');
+        }
+        
         return { success: true, project };
 
     } catch (error) {
@@ -172,7 +168,8 @@ export async function createComment(issueId: string, body: string, orgSlug: stri
             }
         });
         
-        revalidatePath(`/api/issues/${issueId}`); // This won't work as expected, but client can refetch
+        revalidatePath(`/api/issues/${issueId}`);
+        revalidatePath(`/${orgSlug}/${projectKey}/board`);
         
         return { success: true, comment };
     } catch (error) {

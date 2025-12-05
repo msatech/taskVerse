@@ -1,3 +1,4 @@
+
 import { z } from "zod";
 
 export const issueTaggingSchema = z.object({
@@ -25,12 +26,16 @@ export const loginSchema = z.object({
   password: z.string().min(1, { message: "Password is required." }),
 });
 
-
 export const createProjectFormSchema = z.object({
     name: z.string().min(2, "Project name must be at least 2 characters long."),
     key: z.string().min(2, "Project key must be at least 2 characters long.").max(5, "Project key must be 5 characters or less.").regex(/^[A-Z0-9]+$/, "Key must be uppercase letters and numbers."),
     type: z.enum(["KANBAN", "SCRUM"]),
 });
+
+export const createProjectActionSchema = createProjectFormSchema.extend({
+  organizationId: z.string(),
+});
+
 
 export type SignupFormValues = z.infer<typeof signupSchema>;
 export type LoginFormValues = z.infer<typeof loginSchema>;
