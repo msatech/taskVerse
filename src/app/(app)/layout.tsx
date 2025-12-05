@@ -24,10 +24,19 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     },
   });
 
+  const invitations = await db.invitation.findMany({
+    where: {
+      email: user.email,
+      expires: {
+        gt: new Date()
+      }
+    }
+  });
+
   return (
     <SidebarProvider>
       <div className="relative flex min-h-screen flex-col bg-background">
-        <DashboardHeader user={user} orgMemberships={orgMemberships} />
+        <DashboardHeader user={user} orgMemberships={orgMemberships} invitations={invitations} />
         <div className="flex flex-1">
           <Sidebar collapsible="icon" side="left" variant="sidebar" className="bg-sidebar border-r">
             <DashboardSidebar orgMemberships={orgMemberships} />

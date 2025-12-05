@@ -3,7 +3,7 @@
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Project, Organization, OrganizationMember, User as PrismaUser } from "@prisma/client";
+import { Project, Organization, OrganizationMember, User as PrismaUser, Invitation } from "@prisma/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -17,7 +17,7 @@ import { Form, FormControl, FormField, FormItem, FormMessage } from "@/component
 import { useTransition } from "react";
 import { inviteMember } from "@/lib/actions";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, UserPlus } from "lucide-react";
+import { Loader2, UserPlus, Clock } from "lucide-react";
 import {
   Table,
   TableBody,
@@ -26,12 +26,13 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+import { formatDistanceToNow } from "date-fns";
 
 type MemberWithUser = OrganizationMember & { user: PrismaUser };
 
 type SettingsTabsProps = {
     project: Project & { lead: PrismaUser };
-    organization: Organization;
+    organization: Organization & { invitations: Invitation[] };
     members: MemberWithUser[];
     currentUserRole: string;
 }
@@ -102,97 +103,133 @@ export function SettingsTabs({ project, organization, members, currentUserRole }
                     </CardContent>
                 </Card>
             </TabsContent>
-            <TabsContent value="members">
+            <TabsContent value="members" className="space-y-6">
+                {canManageMembers && (
+                     <Card>
+                        <CardHeader>
+                            <CardTitle>Invite New Member</CardTitle>
+                             <CardDescription>Invite a new member to join the '{organization.name}' organization.</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            <Form {...form}>
+                                <form onSubmit={form.handleSubmit(onSubmit)} className="flex items-start gap-4">
+                                    <FormField
+                                        control={form.control}
+                                        name="email"
+                                        render={({ field }) => (
+                                            <FormItem className="flex-1">
+                                                 <Label htmlFor="email" className="sr-only">Email</Label>
+                                                <FormControl>
+                                                    <Input id="email" placeholder="new.member@example.com" {...field} />
+                                                </FormControl>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
+                                    <Button type="submit" disabled={isPending}>
+                                        {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <UserPlus className="h-4 w-4" />}
+                                        <span>Invite</span>
+                                    </Button>
+                                </form>
+                            </Form>
+                        </CardContent>
+                     </Card>
+                )}
+               
                 <Card>
                     <CardHeader>
-                        <CardTitle>Members</CardTitle>
+                        <CardTitle>Organization Members</CardTitle>
                         <CardDescription>Manage who has access to this project's organization.</CardDescription>
                     </CardHeader>
-                    <CardContent className="space-y-6">
-                        {canManageMembers && (
-                             <Card>
-                                <CardHeader>
-                                    <CardTitle>Invite New Member</CardTitle>
-                                </CardHeader>
-                                <CardContent>
-                                    <Form {...form}>
-                                        <form onSubmit={form.handleSubmit(onSubmit)} className="flex items-start gap-4">
-                                            <FormField
-                                                control={form.control}
-                                                name="email"
-                                                render={({ field }) => (
-                                                    <FormItem className="flex-1">
-                                                         <Label htmlFor="email" className="sr-only">Email</Label>
-                                                        <FormControl>
-                                                            <Input id="email" placeholder="new.member@example.com" {...field} />
-                                                        </FormControl>
-                                                        <FormMessage />
-                                                    </FormItem>
-                                                )}
-                                            />
-                                            <Button type="submit" disabled={isPending}>
-                                                {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <UserPlus className="h-4 w-4" />}
-                                                <span>Invite</span>
-                                            </Button>
-                                        </form>
-                                    </Form>
-                                </CardContent>
-                             </Card>
-                        )}
-                       
-                        <div>
-                             <h3 className="text-lg font-medium mb-4">Organization Members</h3>
+                     <CardContent>
+                         <Table>
+                            <TableHeader>
+                                <TableRow>
+                                <TableHead>Member</TableHead>
+                                <TableHead>Role</TableHead>
+                                <TableHead className="text-right">Actions</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {members.map(member => (
+                                    <TableRow key={member.id}>
+                                        <TableCell>
+                                            <div className="flex items-center gap-4">
+                                                <Avatar className="h-9 w-9">
+                                                    <AvatarImage src={member.user.avatarUrl || avatarPlaceholder?.imageUrl} />
+                                                    <AvatarFallback>{member.user.name?.[0].toUpperCase()}</AvatarFallback>
+                                                </Avatar>
+                                                <div>
+                                                    <p className="font-medium">{member.user.name}</p>
+                                                    <p className="text-sm text-muted-foreground">{member.user.email}</p>
+                                                </div>
+                                            </div>
+                                        </TableCell>
+                                        <TableCell>
+                                            {canManageMembers && member.user.id !== organization.ownerId ? (
+                                                 <Select defaultValue={member.role}>
+                                                    <SelectTrigger className="w-[120px]">
+                                                        <SelectValue />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        <SelectItem value="OWNER">Owner</SelectItem>
+                                                        <SelectItem value="ADMIN">Admin</SelectItem>
+                                                        <SelectItem value="MEMBER">Member</SelectItem>
+                                                    </SelectContent>
+                                                 </Select>
+                                            ) : (
+                                                <span className="text-sm capitalize">{member.role.toLowerCase()}</span>
+                                            )}
+                                        </TableCell>
+                                        <TableCell className="text-right">
+                                             {canManageMembers && member.user.id !== organization.ownerId && (
+                                                 <Button variant="outline" size="sm">Remove</Button>
+                                             )}
+                                        </TableCell>
+                                    </TableRow>
+                                ))}
+                            </TableBody>
+                        </Table>
+                     </CardContent>
+                </Card>
+
+                 {canManageMembers && organization.invitations.length > 0 && (
+                     <Card>
+                        <CardHeader>
+                            <CardTitle>Pending Invitations</CardTitle>
+                            <CardDescription>These people have been invited but have not yet joined.</CardDescription>
+                        </CardHeader>
+                        <CardContent>
                              <Table>
                                 <TableHeader>
                                     <TableRow>
-                                    <TableHead>Member</TableHead>
-                                    <TableHead>Role</TableHead>
+                                    <TableHead>Email</TableHead>
+                                    <TableHead>Expires</TableHead>
                                     <TableHead className="text-right">Actions</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {members.map(member => (
-                                        <TableRow key={member.id}>
+                                    {organization.invitations.map(invite => (
+                                        <TableRow key={invite.id}>
                                             <TableCell>
-                                                <div className="flex items-center gap-4">
-                                                    <Avatar className="h-9 w-9">
-                                                        <AvatarImage src={member.user.avatarUrl || avatarPlaceholder?.imageUrl} />
-                                                        <AvatarFallback>{member.user.name?.[0].toUpperCase()}</AvatarFallback>
-                                                    </Avatar>
-                                                    <div>
-                                                        <p className="font-medium">{member.user.name}</p>
-                                                        <p className="text-sm text-muted-foreground">{member.user.email}</p>
-                                                    </div>
+                                                <p className="font-medium">{invite.email}</p>
+                                            </TableCell>
+                                            <TableCell>
+                                                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                                    <Clock className="h-4 w-4" />
+                                                    <span>Expires {formatDistanceToNow(new Date(invite.expires), { addSuffix: true })}</span>
                                                 </div>
                                             </TableCell>
-                                            <TableCell>
-                                                {canManageMembers && member.user.id !== organization.ownerId ? (
-                                                     <Select defaultValue={member.role}>
-                                                        <SelectTrigger className="w-[120px]">
-                                                            <SelectValue />
-                                                        </SelectTrigger>
-                                                        <SelectContent>
-                                                            <SelectItem value="OWNER">Owner</SelectItem>
-                                                            <SelectItem value="ADMIN">Admin</SelectItem>
-                                                            <SelectItem value="MEMBER">Member</SelectItem>
-                                                        </SelectContent>
-                                                     </Select>
-                                                ) : (
-                                                    <span className="text-sm">{member.role}</span>
-                                                )}
-                                            </TableCell>
                                             <TableCell className="text-right">
-                                                 {canManageMembers && member.user.id !== organization.ownerId && (
-                                                     <Button variant="outline" size="sm">Remove</Button>
-                                                 )}
+                                                <Button variant="outline" size="sm">Resend</Button>
                                             </TableCell>
                                         </TableRow>
                                     ))}
                                 </TableBody>
                             </Table>
-                        </div>
-                    </CardContent>
-                </Card>
+                        </CardContent>
+                    </Card>
+                )}
             </TabsContent>
             <TabsContent value="danger">
                  <Card className="border-destructive">

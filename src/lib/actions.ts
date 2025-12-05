@@ -386,13 +386,28 @@ export async function inviteMember(values: z.infer<typeof inviteMemberSchema>) {
         if (org.members.some(m => m.user.email === validatedValues.email)) {
             return { success: false, error: "This user is already a member of the organization." };
         }
+        
+        const existingInvitation = await db.invitation.findFirst({
+            where: {
+                email: validatedValues.email,
+                organizationId: validatedValues.organizationId,
+                expires: {
+                    gt: new Date()
+                }
+            }
+        });
+
+        if (existingInvitation) {
+            return { success: false, error: "An invitation has already been sent to this email address."}
+        }
+
 
         // TODO: In a real app, you would send an email with the link.
         // For now, we'll just create the invitation and log the link.
         const token = randomBytes(32).toString("hex");
         const expires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
 
-        const invitation = await db.invitation.create({
+        await db.invitation.create({
             data: {
                 email: validatedValues.email,
                 organizationId: validatedValues.organizationId,
@@ -401,9 +416,6 @@ export async function inviteMember(values: z.infer<typeof inviteMemberSchema>) {
             }
         });
 
-        const inviteLink = `/invite/${token}`;
-        console.log(`Generated invite link for ${validatedValues.email}: ${inviteLink}`);
-        
         await db.activityLog.create({
             data: {
                 organizationId: org.id,
@@ -426,3 +438,64 @@ export async function inviteMember(values: z.infer<typeof inviteMemberSchema>) {
     }
 }
 
+
+export async function acceptInvitation(token: string) {
+    const user = await getSession();
+    if (!user) {
+        return { success: false, error: "Not authenticated. Please log in or sign up to accept the invitation." };
+    }
+
+    try {
+        const invitation = await db.invitation.findUnique({
+            where: { token, expires: { gt: new Date() } }
+        });
+
+        if (!invitation) {
+            return { success: false, error: "Invalid or expired invitation token." };
+        }
+
+        if (invitation.email !== user.email) {
+            return { success: false, error: "This invitation is for a different email address." };
+        }
+
+        const org = await db.organization.findUnique({ where: { id: invitation.organizationId }});
+        if (!org) {
+             return { success: false, error: "Organization not found." };
+        }
+
+        await db.$transaction(async (prisma) => {
+            await prisma.organizationMember.create({
+                data: {
+                    organizationId: invitation.organizationId,
+                    userId: user.id,
+                    role: "MEMBER",
+                },
+            });
+
+            await prisma.activityLog.create({
+                data: {
+                    organizationId: invitation.organizationId,
+                    actorId: user.id,
+                    type: 'MEMBER_JOINED',
+                    message: `${user.name} joined the organization.`
+                }
+            });
+
+            await prisma.invitation.delete({
+                where: { id: invitation.id }
+            });
+        });
+
+        revalidatePath(`/`, 'layout');
+
+        return { success: true, organizationSlug: org.slug };
+
+    } catch (error) {
+        // Handle case where user is already a member
+        if (error instanceof Error && (error as any).code === 'P2002') {
+             return { success: false, error: "You are already a member of this organization." };
+        }
+        console.error("Failed to accept invitation:", error);
+        return { success: false, error: "An unknown error occurred." };
+    }
+}

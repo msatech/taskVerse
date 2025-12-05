@@ -1,7 +1,7 @@
 
 "use client";
 
-import type { User } from "@prisma/client";
+import type { Invitation, User } from "@prisma/client";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -14,12 +14,14 @@ import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { PlaceHolderImages } from "@/lib/placeholder-images";
 import Link from "next/link";
+import { Badge } from "../ui/badge";
 
 type UserProfileProps = {
   user: Pick<User, "name" | "email" | "avatarUrl">;
+  invitations: Invitation[];
 };
 
-export function UserProfile({ user }: UserProfileProps) {
+export function UserProfile({ user, invitations }: UserProfileProps) {
   const avatar = PlaceHolderImages.find((img) => img.id === "user-avatar");
   const fallback = user.name
     ? user.name.charAt(0).toUpperCase()
@@ -28,7 +30,7 @@ export function UserProfile({ user }: UserProfileProps) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="icon" className="rounded-full">
+        <Button variant="ghost" size="icon" className="rounded-full relative">
           <Avatar>
             <AvatarImage
               src={user.avatarUrl || avatar?.imageUrl}
@@ -36,6 +38,7 @@ export function UserProfile({ user }: UserProfileProps) {
             />
             <AvatarFallback>{fallback}</AvatarFallback>
           </Avatar>
+           {invitations.length > 0 && <span className="absolute bottom-0 right-0 block h-2.5 w-2.5 rounded-full bg-primary ring-2 ring-background" />}
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
@@ -48,6 +51,17 @@ export function UserProfile({ user }: UserProfileProps) {
           </div>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
+         {invitations.length > 0 && (
+          <>
+            <DropdownMenuItem asChild>
+              <Link href={`/invite/${invitations[0].token}`} className="flex items-center justify-between">
+                <span>Invitations</span>
+                <Badge>{invitations.length}</Badge>
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+          </>
+        )}
         <DropdownMenuItem asChild>
           <Link href="/profile">Profile</Link>
         </DropdownMenuItem>

@@ -26,6 +26,14 @@ export default async function ProjectSettingsPage({ params }: ProjectSettingsPag
                 include: {
                     user: true
                 }
+            },
+            invitations: {
+                where: {
+                    expires: { gt: new Date() }
+                },
+                orderBy: {
+                    createdAt: 'desc'
+                }
             }
         }
     });
