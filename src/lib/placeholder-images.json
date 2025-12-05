@@ -1,3 +1,34 @@
 {
-  "placeholderImages": []
+  "placeholderImages": [
+    {
+      "id": "hero",
+      "description": "Abstract representation of project management tasks",
+      "imageUrl": "https://images.unsplash.com/photo-1700021654526-4d6c6ebdc5c3?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw3fHxhYnN0cmFjdCUyMHRhc2tzfGVufDB8fHx8MTc2NDk0Mjk4MHww&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "abstract tasks"
+    },
+    {
+      "id": "feature-board",
+      "description": "A Kanban board view",
+      "imageUrl": "https://images.unsplash.com/photo-1631203924626-549ba231917e?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw0fHxrYW5iYW4lMjBib2FyZHxlbnwwfHx8fDE3NjQ5NDI5ODB8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "kanban board"
+    },
+    {
+      "id": "feature-backlog",
+      "description": "A project backlog view",
+      "imageUrl": "https://images.unsplash.com/photo-1581431886211-6b932f8367f2?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwyfHxsaXN0JTIwYmFja2xvZ3xlbnwwfHx8fDE3NjQ5NDI5ODF8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "list backlog"
+    },
+    {
+      "id": "feature-analytics",
+      "description": "A charts and reports view",
+      "imageUrl": "https://images.unsplash.com/photo-1737703638422-2cfa152cdcb7?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw2fHxhbmFseXRpY3MlMjBjaGFydHxlbnwwfHx8fDE3NjQ5MDg4NDh8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "analytics chart"
+    },
+    {
+      "id": "user-avatar",
+      "description": "Default user avatar",
+      "imageUrl": "https://images.unsplash.com/photo-1640952131659-49a06dd90ad2?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw4fHxwZXJzb24lMjBhdmF0YXJ8ZW58MHx8fHwxNzY0OTMwNTQxfDA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "person avatar"
+    }
+  ]
 }

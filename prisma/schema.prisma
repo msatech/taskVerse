@@ -1,0 +1,143 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model User {
+  id               String                @id @default(cuid())
+  name             String
+  email            String                @unique
+  hashedPassword   String
+  avatarUrl        String?
+  createdAt        DateTime              @default(now())
+  updatedAt        DateTime              @updatedAt
+  ownedOrganizations Organization[]      @relation("OrganizationOwner")
+  projectsAsLead   Project[]             @relation("ProjectLead")
+  organizationMemberships OrganizationMember[]
+  issuesAssigned   Issue[]               @relation("IssueAssignee")
+  issuesReported   Issue[]               @relation("IssueReporter")
+  comments         Comment[]
+}
+
+model Organization {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  avatarUrl String?
+  owner     User     @relation("OrganizationOwner", fields: [ownerId], references: [id])
+  ownerId   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  projects  Project[]
+  members   OrganizationMember[]
+}
+
+model OrganizationMember {
+  id             String       @id @default(cuid())
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  organizationId String
+  user           User         @relation(fields: [userId], references: [id])
+  userId         String
+  role           String       // OWNER, ADMIN, MEMBER
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@unique([organizationId, userId])
+}
+
+model Project {
+  id             String       @id @default(cuid())
+  name           String
+  key            String       @unique
+  type           String       // KANBAN, SCRUM
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  organizationId String
+  lead           User         @relation("ProjectLead", fields: [leadId], references: [id])
+  leadId         String
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  statuses       Status[]
+  issues         Issue[]
+  sprints        Sprint[]
+}
+
+model Status {
+  id        String   @id @default(cuid())
+  name      String
+  category  String   // TODO, IN_PROGRESS, DONE
+  order     Int
+  project   Project  @relation(fields: [projectId], references: [id])
+  projectId String
+  issues    Issue[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([projectId, name])
+}
+
+model Issue {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  title       String
+  description String?
+  type        String   // STORY, TASK, BUG, EPIC
+  priority    String   // NONE, LOW, MEDIUM, HIGH, CRITICAL
+  status      Status   @relation(fields: [statusId], references: [id])
+  statusId    String
+  project     Project  @relation(fields: [projectId], references: [id])
+  projectId   String
+  assignee    User?    @relation("IssueAssignee", fields: [assigneeId], references: [id])
+  assigneeId  String?
+  reporter    User     @relation("IssueReporter", fields: [reporterId], references: [id])
+  reporterId  String
+  parent      Issue?   @relation("IssueParentChild", fields: [parentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  parentId    String?
+  children    Issue[]  @relation("IssueParentChild")
+  dueDate     DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  sprints     IssueSprint[]
+  comments    Comment[]
+}
+
+model Sprint {
+  id        String   @id @default(cuid())
+  name      String
+  goal      String?
+  status    String   // FUTURE, ACTIVE, COMPLETED
+  startDate DateTime?
+  endDate   DateTime?
+  project   Project  @relation(fields: [projectId], references: [id])
+  projectId String
+  issues    IssueSprint[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model IssueSprint {
+  issueId   String
+  issue     Issue    @relation(fields: [issueId], references: [id])
+  sprintId  String
+  sprint    Sprint   @relation(fields: [sprintId], references: [id])
+  addedAt   DateTime @default(now())
+
+  @@id([issueId, sprintId])
+}
+
+model Comment {
+  id        String   @id @default(cuid())
+  body      String
+  author    User     @relation(fields: [authorId], references: [id])
+  authorId  String
+  issue     Issue    @relation(fields: [issueId], references: [id])
+  issueId   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
