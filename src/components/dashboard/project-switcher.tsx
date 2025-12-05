@@ -6,6 +6,9 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Button } from "@/components/ui/button";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, CommandSeparator } from "@/components/ui/command";
 import { useRouter } from "next/navigation";
+import { useState } from "react";
+import { CreateProjectDialog } from "../project/create-project-dialog";
+
 
 export type OrgMembershipWithProjects = OrganizationMember & {
   organization: Organization & {
@@ -21,18 +24,36 @@ type ProjectSwitcherProps = {
 
 export function ProjectSwitcher({ orgMemberships, currentOrg, currentProject }: ProjectSwitcherProps) {
   const router = useRouter();
+  const [open, setOpen] = useState(false);
+  const [showCreateProjectDialog, setShowCreateProjectDialog] = useState(false);
+
 
   const handleProjectSelect = (project: Project) => {
     if (currentOrg) {
+      setOpen(false);
       router.push(`/${currentOrg.slug}/${project.key}`);
     }
   };
 
+  const handleCreateProject = () => {
+    setOpen(false);
+    setShowCreateProjectDialog(true);
+  }
+
+  const activeOrg = currentOrg || orgMemberships[0]?.organization;
+
   return (
     <>
+      {activeOrg && (
+        <CreateProjectDialog
+          organization={activeOrg}
+          open={showCreateProjectDialog}
+          onOpenChange={setShowCreateProjectDialog}
+        />
+      )}
       {currentOrg && (
         <Button variant="ghost" className="w-full justify-between">
-          <div className="truncate">
+          <div className="truncate text-left">
             <div className="text-xs text-muted-foreground">Organization</div>
             <div className="font-semibold">{currentOrg.name}</div>
           </div>
@@ -40,10 +61,10 @@ export function ProjectSwitcher({ orgMemberships, currentOrg, currentProject }: 
         </Button>
       )}
 
-      <Popover>
+      <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
           <Button variant="ghost" className="w-full justify-between">
-            <div className="truncate">
+            <div className="truncate text-left">
               <div className="text-xs text-muted-foreground">Project</div>
               <div className="font-semibold">
                 {currentProject ? currentProject.name : "Select a project"}
@@ -63,7 +84,7 @@ export function ProjectSwitcher({ orgMemberships, currentOrg, currentProject }: 
                      <CommandItem
                       key={project.id}
                       onSelect={() => handleProjectSelect(project)}
-                      className="text-sm"
+                      className="text-sm cursor-pointer"
                      >
                        {project.name}
                      </CommandItem>
@@ -74,7 +95,7 @@ export function ProjectSwitcher({ orgMemberships, currentOrg, currentProject }: 
             <CommandSeparator />
             <CommandList>
                 <CommandGroup>
-                    <CommandItem onSelect={() => { /* Handle create project */ }}>
+                    <CommandItem onSelect={handleCreateProject} className="cursor-pointer">
                         <PlusCircle className="mr-2 h-5 w-5" />
                         Create Project
                     </CommandItem>
