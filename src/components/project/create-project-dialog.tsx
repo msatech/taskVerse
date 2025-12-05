@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/navigation";
@@ -30,7 +30,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
 import type { Organization } from "@prisma/client";
 import { createProject } from "@/lib/actions";
-import { Label } from "../ui/label";
+import { Label } from "@/components/ui/label";
 
 type CreateProjectDialogProps = {
   organization: Organization;
@@ -54,8 +54,7 @@ export function CreateProjectDialog({ organization, open, onOpenChange }: Create
   
   const projectName = form.watch("name");
 
-  // Suggest a project key from the name
-  useState(() => {
+  useEffect(() => {
     if (projectName) {
       const suggestedKey = projectName
         .split(" ")
@@ -67,7 +66,7 @@ export function CreateProjectDialog({ organization, open, onOpenChange }: Create
         form.setValue("key", suggestedKey);
       }
     }
-  });
+  }, [projectName, form]);
 
 
   async function onSubmit(data: CreateProjectFormValues) {
