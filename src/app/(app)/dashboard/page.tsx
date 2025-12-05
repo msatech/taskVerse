@@ -1,7 +1,7 @@
 import { getSession } from "@/lib/session";
 import { redirect } from "next/navigation";
 import db from "@/lib/db";
-import AppRootPage from "../page";
+import WelcomePage from "@/app/(app)/welcome/page";
 
 export default async function DashboardRedirectPage() {
     const user = await getSession();
@@ -35,5 +35,5 @@ export default async function DashboardRedirectPage() {
     }
 
     // If no project, show the welcome page that instructs to select/create one.
-    return <AppRootPage />;
+    return <WelcomePage />;
 }
