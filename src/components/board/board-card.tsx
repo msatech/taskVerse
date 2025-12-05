@@ -1,3 +1,4 @@
+
 "use client";
 
 import type { Issue, User } from "@prisma/client";
@@ -5,7 +6,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { PlaceHolderImages } from "@/lib/placeholder-images";
-import { Bug, CheckCircle, ArrowUp, ArrowDown, ChevronsUp, Type } from "lucide-react";
+import { getIssueTypeIcon, getPriorityIcon } from "@/lib/utils";
 
 type IssueWithAssignee = Issue & { assignee: User | null; reporter: User };
 
@@ -15,44 +16,51 @@ type BoardCardProps = {
     onClick: () => void;
 }
 
-const issueTypeIcons: Record<Issue['type'], React.ReactNode> = {
-    STORY: <CheckCircle className="h-4 w-4 text-green-500" />,
-    TASK: <Type className="h-4 w-4 text-blue-500" />,
-    BUG: <Bug className="h-4 w-4 text-red-500" />,
-    EPIC: <ChevronsUp className="h-4 w-4 text-purple-500" />
-};
-
-const priorityIcons: Record<Issue['priority'], React.ReactNode> = {
-    NONE: <ArrowDown className="h-4 w-4 text-gray-400" />,
-    LOW: <ArrowDown className="h-4 w-4 text-green-500" />,
-    MEDIUM: <ArrowUp className="h-4 w-4 text-yellow-500" />,
-    HIGH: <ArrowUp className="h-4 w-4 text-orange-500" />,
-    CRITICAL: <ArrowUp className="h-4 w-4 text-red-500" />
-};
-
 export function BoardCard({ issue, onDragStart, onClick }: BoardCardProps) {
     const avatarPlaceholder = PlaceHolderImages.find(img => img.id === 'user-avatar');
 
     const assigneeFallback = issue.assignee ? issue.assignee.name?.charAt(0).toUpperCase() : 'U';
+
+    const IssueTypeIcon = getIssueTypeIcon(issue.type);
+    const PriorityIcon = getPriorityIcon(issue.priority);
+
+    const issueTypeColorClasses: Record<Issue['type'], string> = {
+        STORY: 'text-green-500',
+        TASK: 'text-blue-500',
+        BUG: 'text-red-500',
+        EPIC: 'text-purple-500',
+    };
+
+    const priorityColorClasses: Record<Issue['priority'], string> = {
+        NONE: 'text-gray-400',
+        LOW: 'text-green-500',
+        MEDIUM: 'text-yellow-500',
+        HIGH: 'text-orange-500',
+        CRITICAL: 'text-red-500',
+    };
 
     return (
         <Card 
             draggable 
             onDragStart={onDragStart}
             onClick={onClick}
-            className="cursor-pointer active:cursor-grabbing"
+            className="cursor-pointer active:cursor-grabbing hover:bg-muted/80 transition-colors"
         >
             <CardContent className="p-3">
-                <p className="text-sm mb-2">{issue.title}</p>
+                <p className="text-sm mb-2 font-medium">{issue.title}</p>
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                         <TooltipProvider>
                             <Tooltip>
-                                <TooltipTrigger>{issueTypeIcons[issue.type]}</TooltipTrigger>
+                                <TooltipTrigger>
+                                    <IssueTypeIcon className={`h-4 w-4 ${issueTypeColorClasses[issue.type]}`} />
+                                </TooltipTrigger>
                                 <TooltipContent><p>{issue.type}</p></TooltipContent>
                             </Tooltip>
                             <Tooltip>
-                                <TooltipTrigger>{priorityIcons[issue.priority]}</TooltipTrigger>
+                                <TooltipTrigger>
+                                    <PriorityIcon className={`h-4 w-4 ${priorityColorClasses[issue.priority]}`} />
+                                </TooltipTrigger>
                                 <TooltipContent><p>{issue.priority}</p></TooltipContent>
                             </Tooltip>
                         </TooltipProvider>

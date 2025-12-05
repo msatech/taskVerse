@@ -19,18 +19,12 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { PlaceHolderImages } from "@/lib/placeholder-images";
 import {
   ArrowDown,
-  ArrowUp,
-  Bug,
-  CheckCircle,
-  ChevronsUp,
-  Type as TypeIcon,
   User as UserIcon,
   Calendar,
   Clock,
   Loader2,
-  MoreHorizontal,
-  Trash2,
   Pencil,
+  Type
 } from "lucide-react";
 import { Textarea } from "../ui/textarea";
 import { Form, FormControl, FormField, FormItem, FormMessage } from "../ui/form";
@@ -213,7 +207,7 @@ export function IssueDetails({ issueId, projectUsers, statuses, isOpen, onOpenCh
   };
   
   const PriorityIcon = issue ? getPriorityIcon(issue.priority) : ArrowDown;
-  const TypeIcon = issue ? getIssueTypeIcon(issue.type) : TypeIcon;
+  const IssueTypeIcon = issue ? getIssueTypeIcon(issue.type) : Type;
 
   return (
     <Sheet open={isOpen} onOpenChange={onOpenChange}>
@@ -326,9 +320,9 @@ export function IssueDetails({ issueId, projectUsers, statuses, isOpen, onOpenCh
                             </SelectContent>
                          </Select>
                     </div>
-                  {renderField(TypeIcon, "Type", 
+                  {renderField(IssueTypeIcon, "Type", 
                     <div className="flex items-center gap-2">
-                        {React.createElement(TypeIcon, {className: "h-4 w-4"})}
+                        {React.createElement(IssueTypeIcon, {className: "h-4 w-4"})}
                         <span>{issue.type}</span>
                     </div>
                   )}

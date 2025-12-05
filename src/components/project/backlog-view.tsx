@@ -15,6 +15,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Form, FormControl, FormField, FormItem, FormMessage } from '../ui/form';
 import { Input } from '../ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
+import { Card } from '../ui/card';
 
 
 type IssueFull = Issue & { assignee: User | null; reporter: User; status: Status };
@@ -64,66 +65,99 @@ export function BacklogView({ project, issues: initialIssues, statuses, users }:
 
     return (
         <div className="space-y-4">
-            <div className='p-4 rounded-lg bg-card border'>
-                {issues.length > 0 ? (
-                    <div className="space-y-2">
-                        {issues.map(issue => (
-                            <BoardCard key={issue.id} issue={issue} onDragStart={() => {}} onClick={() => {}} />
-                        ))}
-                    </div>
-                ) : (
-                    !isCreating && <p className="text-muted-foreground text-center p-8">Your backlog is empty.</p>
-                )}
+            <Card>
+                <div className="p-4">
+                    {issues.length > 0 ? (
+                        <div className="space-y-2">
+                            {issues.map(issue => (
+                                <BoardCard key={issue.id} issue={issue} onDragStart={() => {}} onClick={() => {}} />
+                            ))}
+                        </div>
+                    ) : (
+                        !isCreating && (
+                            <div className="text-center py-12">
+                                <h3 className="font-semibold text-lg">Your backlog is empty</h3>
+                                <p className="text-muted-foreground text-sm mt-1">Create an issue to get started.</p>
+                            </div>
+                        )
+                    )}
 
-                 {isCreating && (
-                    <div className="p-2">
-                        <Form {...form}>
-                            <form onSubmit={form.handleSubmit(onSubmit)} className="flex items-start gap-2">
-                               <div className='flex-1 grid grid-cols-3 gap-2'>
-                                <FormField
-                                    control={form.control}
-                                    name="title"
-                                    render={({ field }) => (
-                                        <FormItem className='col-span-2'>
-                                            <FormControl>
-                                                <Input placeholder="What needs to be done?" {...field} />
-                                            </FormControl>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )}
-                                />
-                                 <FormField
-                                    control={form.control}
-                                    name="type"
-                                    render={({ field }) => (
-                                        <FormItem>
-                                             <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    {isCreating && (
+                        <div className="p-2 border rounded-lg bg-background">
+                            <Form {...form}>
+                                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-3">
+                                    <FormField
+                                        control={form.control}
+                                        name="title"
+                                        render={({ field }) => (
+                                            <FormItem>
                                                 <FormControl>
-                                                <SelectTrigger>
-                                                    <SelectValue placeholder="Issue type" />
-                                                </SelectTrigger>
+                                                    <Input placeholder="What needs to be done?" {...field} className="text-base" />
                                                 </FormControl>
-                                                <SelectContent>
-                                                    <SelectItem value="TASK">Task</SelectItem>
-                                                    <SelectItem value="STORY">Story</SelectItem>
-                                                    <SelectItem value="BUG">Bug</SelectItem>
-                                                </SelectContent>
-                                            </Select>
-                                        </FormItem>
-                                    )}
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
                                     />
-                               </div>
-                                <Button type="submit" size="sm" disabled={isPending}>
-                                    {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Add'}
-                                </Button>
-                                <Button type="button" size="sm" variant="ghost" onClick={() => setIsCreating(false)}>Cancel</Button>
-                            </form>
-                        </Form>
-                    </div>
-                )}
-            </div>
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex items-center gap-2">
+                                            <FormField
+                                                control={form.control}
+                                                name="type"
+                                                render={({ field }) => (
+                                                    <FormItem>
+                                                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                                            <FormControl>
+                                                                <SelectTrigger>
+                                                                    <SelectValue placeholder="Issue type" />
+                                                                </SelectTrigger>
+                                                            </FormControl>
+                                                            <SelectContent>
+                                                                <SelectItem value="TASK">Task</SelectItem>
+                                                                <SelectItem value="STORY">Story</SelectItem>
+                                                                <SelectItem value="BUG">Bug</SelectItem>
+                                                            </SelectContent>
+                                                        </Select>
+                                                    </FormItem>
+                                                )}
+                                            />
+                                             <FormField
+                                                control={form.control}
+                                                name="priority"
+                                                render={({ field }) => (
+                                                    <FormItem>
+                                                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                                            <FormControl>
+                                                                <SelectTrigger>
+                                                                    <SelectValue placeholder="Priority" />
+                                                                </SelectTrigger>
+                                                            </FormControl>
+                                                            <SelectContent>
+                                                                <SelectItem value="NONE">None</SelectItem>
+                                                                <SelectItem value="LOW">Low</SelectItem>
+                                                                <SelectItem value="MEDIUM">Medium</SelectItem>
+                                                                <SelectItem value="HIGH">High</SelectItem>
+                                                                <SelectItem value="CRITICAL">Critical</SelectItem>
+                                                            </SelectContent>
+                                                        </Select>
+                                                    </FormItem>
+                                                )}
+                                            />
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <Button type="button" size="sm" variant="ghost" onClick={() => setIsCreating(false)}>Cancel</Button>
+                                            <Button type="submit" size="sm" disabled={isPending}>
+                                                {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Create'}
+                                            </Button>
+                                        </div>
+                                    </div>
+                                </form>
+                            </Form>
+                        </div>
+                    )}
+                </div>
+            </Card>
             {!isCreating && (
-                <Button variant="ghost" onClick={() => setIsCreating(true)}>
+                <Button variant="ghost" onClick={() => setIsCreating(true)} className="text-muted-foreground">
                     <PlusCircle className="mr-2 h-4 w-4" />
                     Create issue
                 </Button>

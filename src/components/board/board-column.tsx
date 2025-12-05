@@ -1,3 +1,4 @@
+
 "use client";
 
 import type { Issue, Status, User } from "@prisma/client";
@@ -21,11 +22,11 @@ export function BoardColumn({ status, issues, onDragStart, onDrop, onDragOver, o
             onDrop={(e) => onDrop(e, status.id)}
             onDragOver={onDragOver}
         >
-            <div className="flex items-center justify-between p-2 mb-2">
-                <h3 className="font-semibold text-sm uppercase text-muted-foreground">{status.name}</h3>
-                <span className="text-sm text-muted-foreground bg-muted px-2 py-1 rounded-full">{issues.length}</span>
+            <div className="flex items-center justify-between p-2 mb-2 sticky top-0 bg-background/80 backdrop-blur-sm z-10">
+                <h3 className="font-semibold text-sm uppercase text-muted-foreground tracking-wider">{status.name}</h3>
+                <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full font-medium">{issues.length}</span>
             </div>
-            <div className="bg-secondary/50 rounded-lg p-2 space-y-2 min-h-[200px] flex-1">
+            <div className="bg-secondary rounded-lg p-2 space-y-2 min-h-[200px] flex-1">
                 {issues.map(issue => (
                     <BoardCard 
                         key={issue.id} 
