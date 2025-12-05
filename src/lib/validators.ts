@@ -38,10 +38,11 @@ export const createProjectActionSchema = createProjectFormSchema.extend({
 
 export const createIssueSchema = z.object({
   title: z.string().min(1, "Title is required."),
+  description: z.string().optional(),
   type: z.enum(["STORY", "TASK", "BUG", "EPIC"]),
   statusId: z.string().min(1, "Status is required."),
   priority: z.enum(["NONE", "LOW", "MEDIUM", "HIGH", "CRITICAL"]),
-  assigneeId: z.string().optional(),
+  assigneeId: z.string().optional().refine(val => val !== 'unassigned', { message: "Invalid assignee" }),
   projectId: z.string().min(1, "Project is required."),
 });
 

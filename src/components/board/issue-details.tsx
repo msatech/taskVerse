@@ -206,8 +206,8 @@ export function IssueDetails({ issueId, projectUsers, statuses, isOpen, onOpenCh
     )
   };
   
-  const PriorityIcon = issue ? getPriorityIcon(issue.priority) : ArrowDown;
   const IssueTypeIcon = issue ? getIssueTypeIcon(issue.type) : Type;
+  const PriorityIcon = issue ? getPriorityIcon(issue.priority) : ArrowDown;
 
   return (
     <Sheet open={isOpen} onOpenChange={onOpenChange}>
@@ -215,24 +215,28 @@ export function IssueDetails({ issueId, projectUsers, statuses, isOpen, onOpenCh
         <ScrollArea className="h-full">
           {isLoading ? (
             <div className="grid grid-cols-1 lg:grid-cols-3">
-                 <div className="lg:col-span-2 space-y-6 p-6">
+              <div className="lg:col-span-2 space-y-6 p-6">
+                <SheetHeader>
+                  <SheetTitle>
                     <Skeleton className="h-8 w-3/4" />
-                    <div className="pt-4 space-y-2">
-                        <Skeleton className="h-4 w-24" />
-                        <Skeleton className="h-16 w-full" />
-                    </div>
-                     <Separator />
-                     <div className="pt-4 space-y-2">
-                        <Skeleton className="h-4 w-24" />
-                        <Skeleton className="h-20 w-full" />
-                    </div>
+                  </SheetTitle>
+                </SheetHeader>
+                <div className="pt-4 space-y-2">
+                    <Skeleton className="h-4 w-24" />
+                    <Skeleton className="h-16 w-full" />
                 </div>
-                 <div className="lg:col-span-1 space-y-4 border-l bg-secondary/50 p-6">
-                     <Skeleton className="h-6 w-20" />
-                     <div className="space-y-4">
-                        {[...Array(6)].map((_, i) => <Skeleton key={i} className="h-8 w-full" />)}
-                     </div>
-                 </div>
+                <Separator />
+                <div className="pt-4 space-y-2">
+                    <Skeleton className="h-4 w-24" />
+                    <Skeleton className="h-20 w-full" />
+                </div>
+              </div>
+              <div className="lg:col-span-1 space-y-4 border-l bg-secondary/50 p-6">
+                  <h3 className="text-lg font-semibold">Details</h3>
+                  <div className="space-y-4 pt-2">
+                    {[...Array(6)].map((_, i) => <Skeleton key={i} className="h-8 w-full" />)}
+                  </div>
+              </div>
             </div>
           ) : issue ? (
             <div className="grid grid-cols-1 lg:grid-cols-3">

@@ -7,6 +7,7 @@ import { BoardColumn } from "./board-column";
 import { IssueDetails } from "./issue-details";
 import { updateIssueStatus } from "@/lib/actions";
 import { useToast } from "@/hooks/use-toast";
+import { CreateIssueDialog } from "../project/create-issue-dialog";
 
 type IssueFull = Issue & { assignee: User | null; reporter: User; status: Status; _count: { comments: number } };
 type BoardViewProps = {
@@ -23,6 +24,8 @@ type BoardState = {
 export function BoardView({ project, statuses, issues: initialIssues, users }: BoardViewProps) {
   const [boardState, setBoardState] = useState<BoardState>({});
   const [selectedIssue, setSelectedIssue] = useState<IssueFull | null>(null);
+  const [showCreateIssueDialog, setShowCreateIssueDialog] = useState(false);
+  const [defaultCreateStatus, setDefaultCreateStatus] = useState<string | undefined>();
   const { toast } = useToast();
 
   useEffect(() => {
@@ -101,6 +104,11 @@ export function BoardView({ project, statuses, issues: initialIssues, users }: B
   const handleCardClick = (issue: IssueFull) => {
     setSelectedIssue(issue);
   };
+  
+  const handleNewIssueClick = (statusId: string) => {
+    setDefaultCreateStatus(statusId);
+    setShowCreateIssueDialog(true);
+  }
 
   const handleIssueUpdate = (updatedIssue: Partial<IssueFull>) => {
      setBoardState(prevState => {
@@ -134,10 +142,20 @@ export function BoardView({ project, statuses, issues: initialIssues, users }: B
                 [newIssue.statusId]: newColumn,
             };
         });
+        setSelectedIssue(newIssue);
     }
 
   return (
     <>
+      <CreateIssueDialog 
+        project={project}
+        users={users}
+        statuses={statuses}
+        open={showCreateIssueDialog}
+        onOpenChange={setShowCreateIssueDialog}
+        onIssueCreated={onIssueCreated}
+        defaultStatusId={defaultCreateStatus}
+      />
       <div className="flex gap-6 h-full items-start">
         {statuses.map(status => (
           <BoardColumn
@@ -148,6 +166,7 @@ export function BoardView({ project, statuses, issues: initialIssues, users }: B
             onDrop={handleDrop}
             onDragOver={handleDragOver}
             onCardClick={handleCardClick}
+            onNewIssue={handleNewIssueClick}
           />
         ))}
       </div>
