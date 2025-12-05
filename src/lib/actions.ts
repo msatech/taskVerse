@@ -1,4 +1,3 @@
-
 'use server'
 
 import { revalidatePath } from "next/cache";
@@ -203,7 +202,7 @@ export async function createComment(issueId: string, body: string, orgSlug: stri
                 actorId: user.id,
                 type: 'COMMENT_ADDED',
                 message: `commented on issue ${issue.key}`,
-                metadata: { body }
+                metadata: JSON.stringify({ body })
             }
         });
         activityLogs.push(commentActivity);
