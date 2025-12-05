@@ -29,6 +29,7 @@ export async function POST(request: NextRequest) {
           name,
           email,
           hashedPassword,
+          role: "USER"
         },
       });
 
@@ -47,6 +48,16 @@ export async function POST(request: NextRequest) {
           role: "OWNER",
         },
       });
+      
+      // Temporarily commented out to prevent schema mismatch error
+      // await prisma.activityLog.create({
+      //   data: {
+      //       organizationId: organization.id,
+      //       actorId: newUser.id,
+      //       type: "USER_SIGNED_UP",
+      //       message: `User ${newUser.name} created an account and the organization '${organization.name}'`,
+      //   }
+      // });
 
       return newUser;
     });
