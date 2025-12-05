@@ -1,3 +1,4 @@
+
 'use server'
 
 import { revalidatePath } from "next/cache";
@@ -207,7 +208,24 @@ export async function createComment(issueId: string, body: string, orgSlug: stri
         });
         activityLogs.push(commentActivity);
 
-        // If one user mentioned, assign them
+        const url = `/${orgSlug}/${projectKey}/board?issue=${issue.key}`;
+        
+        // Create notifications for mentioned users
+        for (const mentionedId of mentionedUserIds) {
+            if (mentionedId !== user.id) { // Don't notify user for mentioning themselves
+                await db.notification.create({
+                    data: {
+                        userId: mentionedId,
+                        type: 'MENTION',
+                        message: `<strong>${user.name}</strong> mentioned you in <strong>${issue.key}</strong>`,
+                        url,
+                    }
+                });
+            }
+        }
+
+
+        // If one user was mentioned, assign them
         if (mentionedUserIds.length === 1) {
             const assigneeId = mentionedUserIds[0];
             if (issue.assigneeId !== assigneeId) {
@@ -224,6 +242,18 @@ export async function createComment(issueId: string, body: string, orgSlug: stri
                         }
                     });
                     activityLogs.push(assignActivity);
+
+                    // Create notification for assignment
+                    if (assignee.id !== user.id) {
+                        await db.notification.create({
+                            data: {
+                                userId: assignee.id,
+                                type: 'ASSIGNMENT',
+                                message: `<strong>${user.name}</strong> assigned <strong>${issue.key}</strong> to you`,
+                                url,
+                            }
+                        });
+                    }
                 }
             }
         }
@@ -264,7 +294,7 @@ export async function updateIssue(issueId: string, data: any, orgSlug: string, p
             const oldAssigneeName = issue.assignee?.name || 'Unassigned';
             const newAssigneeName = newAssignee?.name || 'Unassigned';
             
-            if(oldAssigneeName !== newAssigneeName) {
+            if(oldAssigneeName !== newAssigneeName && newAssignee) {
                 activityLog = await db.activityLog.create({
                     data: {
                         organizationId: issue.project.organizationId,
@@ -274,6 +304,18 @@ export async function updateIssue(issueId: string, data: any, orgSlug: string, p
                         message: activityMessage || `changed the assignee from ${oldAssigneeName} to ${newAssigneeName}`
                     }
                 });
+
+                // Create notification for assignment
+                if (newAssignee.id !== user.id) {
+                    await db.notification.create({
+                        data: {
+                            userId: newAssignee.id,
+                            type: 'ASSIGNMENT',
+                            message: `<strong>${user.name}</strong> assigned <strong>${issue.key}</strong> to you`,
+                            url: `/${orgSlug}/${projectKey}/board?issue=${issue.key}`,
+                        }
+                    });
+                }
             }
         }
 

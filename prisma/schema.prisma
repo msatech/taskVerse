@@ -1,81 +1,77 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-generator client {
-  provider = "prisma-client-js"
-}
 
 datasource db {
   provider = "sqlite"
   url      = "file:./dev.db"
 }
 
+generator client {
+  provider = "prisma-client-js"
+}
+
 model User {
-  id                      String                 @id @default(cuid())
-  name                    String?
-  email                   String                 @unique
-  emailVerified           DateTime?
-  avatarUrl               String?
-  hashedPassword          String
-  role                    String                 @default("USER")
-  createdAt               DateTime               @default(now())
-  updatedAt               DateTime               @updatedAt
+  id                 String               @id @default(cuid())
+  name               String
+  email              String               @unique
+  hashedPassword     String
+  avatarUrl          String?
+  role               String               @default("USER")
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
   
-  // Relations
-  organizations           OrganizationMember[]
-  ownedOrganizations      Organization[]         @relation("Owner")
-  ledProjects             Project[]              @relation("Lead")
-  reportedIssues          Issue[]                @relation("Reporter")
-  assignedIssues          Issue[]                @relation("Assignee")
-  comments                Comment[]
-  activityLogs            ActivityLog[]
+  assignedIssues     Issue[]              @relation("assignedIssues")
+  reportedIssues     Issue[]              @relation("reportedIssues")
+  comments           Comment[]
+  ownedOrganizations Organization[]       @relation("ownedOrganizations")
+  organizations      OrganizationMember[]
+  ledProjects        Project[]            @relation("ledProjects")
+  activityLogs       ActivityLog[]
+  notifications      Notification[]
 }
 
 model Organization {
-  id          String        @id @default(cuid())
+  id          String               @id @default(cuid())
   name        String
-  slug        String        @unique
+  slug        String               @unique
   avatarUrl   String?
   ownerId     String
-  owner       User                 @relation("Owner", fields: [ownerId], references: [id], onDelete: Cascade)
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
-
-  // Relations
-  members     OrganizationMember[]
+  owner       User                 @relation("ownedOrganizations", fields: [ownerId], references: [id], onDelete: Cascade)
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
+  
   projects    Project[]
+  members     OrganizationMember[]
   invitations Invitation[]
   activityLogs ActivityLog[]
 }
 
 model OrganizationMember {
-  id              String      @id @default(cuid())
+  id              String       @id @default(cuid())
   organizationId  String
   organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   userId          String
-  user            User        @relation(fields: [userId], references: [id], onDelete: Cascade)
-  role            String      @default("MEMBER") // e.g., OWNER, ADMIN, MEMBER
-  createdAt       DateTime    @default(now())
+  user            User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role            String       @default("MEMBER") // e.g., OWNER, ADMIN, MEMBER
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
 
   @@unique([organizationId, userId])
 }
 
 model Project {
-  id              String      @id @default(cuid())
-  name            String
-  key             String      // e.g., "PROJ"
-  type            String      // e.g., "KANBAN", "SCRUM"
-  organizationId  String
-  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  id             String    @id @default(cuid())
+  name           String
+  key            String
+  type           String // SCRUM or KANBAN
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   leadId         String
-  lead           User         @relation("Lead", fields: [leadId], references: [id])
+  lead           User         @relation("ledProjects", fields: [leadId], references: [id])
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
-
-  // Relations
-  issues          Issue[]
-  statuses        Status[]
-  sprints         Sprint[]
+  
+  statuses Status[]
+  issues   Issue[]
+  sprints  Sprint[]
 
   @@unique([organizationId, key])
 }
@@ -83,67 +79,39 @@ model Project {
 model Status {
   id        String  @id @default(cuid())
   name      String
-  category  String // "TODO", "IN_PROGRESS", "DONE"
+  category  String // e.g., TODO, IN_PROGRESS, DONE
   order     Int
   projectId String
   project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
-
-  // Relations
-  issues    Issue[]
   
-  @@unique([projectId, name])
+  issues    Issue[]
 }
 
 model Issue {
   id          String   @id @default(cuid())
-  key         String   // e.g., "PROJ-123"
+  key         String
   title       String
   description String?
-  type        String   // "STORY", "TASK", "BUG", "EPIC"
-  priority    String   // "NONE", "LOW", "MEDIUM", "HIGH", "CRITICAL"
+  type        String   @default("TASK") // e.g., STORY, TASK, BUG, EPIC
+  priority    String   @default("MEDIUM") // e.g., NONE, LOW, MEDIUM, HIGH, CRITICAL
+  dueDate     DateTime?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
-  dueDate     DateTime?
+  
+  projectId    String
+  project      Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  statusId     String
+  status       Status   @relation(fields: [statusId], references: [id])
+  reporterId   String
+  reporter     User     @relation("reportedIssues", fields: [reporterId], references: [id])
+  assigneeId   String?
+  assignee     User?    @relation("assignedIssues", fields: [assigneeId], references: [id])
 
-  // Foreign Keys
-  projectId   String
-  statusId    String
-  reporterId  String
-  assigneeId  String?
-
-  // Relations
-  project     Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  status      Status      @relation(fields: [statusId], references: [id], onDelete: Restrict)
-  reporter    User        @relation("Reporter", fields: [reporterId], references: [id])
-  assignee    User?       @relation("Assignee", fields: [assigneeId], references: [id])
-  comments    Comment[]
-  sprints     IssueSprint[]
+  comments     Comment[]
+  sprints      IssueSprint[]
   activityLogs ActivityLog[]
 
   @@unique([projectId, key])
-}
-
-model Sprint {
-  id          String   @id @default(cuid())
-  name        String
-  goal        String?
-  startDate   DateTime?
-  endDate     DateTime?
-  status      String // "UPCOMING", "ACTIVE", "COMPLETED"
-  
-  projectId   String
-  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  
-  issues      IssueSprint[]
-}
-
-model IssueSprint {
-  issueId   String
-  sprintId  String
-  issue     Issue    @relation(fields: [issueId], references: [id], onDelete: Cascade)
-  sprint    Sprint   @relation(fields: [sprintId], references: [id], onDelete: Cascade)
-
-  @@id([issueId, sprintId])
 }
 
 model Comment {
@@ -151,34 +119,69 @@ model Comment {
   body      String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  
   authorId  String
   author    User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
   issueId   String
   issue     Issue    @relation(fields: [issueId], references: [id], onDelete: Cascade)
 }
 
-model Invitation {
-  id              String      @id @default(cuid())
-  email           String
-  token           String      @unique
-  expires         DateTime
-  organizationId  String
-  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  createdAt       DateTime    @default(now())
+model Sprint {
+    id          String @id @default(cuid())
+    name        String
+    status      String // e.g., PENDING, ACTIVE, COMPLETED
+    goal        String?
+    startDate   DateTime?
+    endDate     DateTime?
+    projectId   String
+    project     Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
-  @@unique([email, organizationId])
+    issues      IssueSprint[]
+}
+
+model IssueSprint {
+    id          String @id @default(cuid())
+    issueId     String
+    issue       Issue  @relation(fields: [issueId], references: [id], onDelete: Cascade)
+    sprintId    String
+    sprint      Sprint @relation(fields: [sprintId], references: [id], onDelete: Cascade)
+
+    @@unique([issueId, sprintId])
 }
 
 model ActivityLog {
-  id              String      @id @default(cuid())
-  organizationId  String
-  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  issueId         String?
-  issue           Issue?      @relation(fields: [issueId], references: [id], onDelete: Cascade)
-  actorId         String
-  actor           User        @relation(fields: [actorId], references: [id], onDelete: Cascade)
-  type            String      // e.g., 'ISSUE_CREATED', 'STATUS_CHANGED', 'COMMENT_ADDED', etc.
-  message         String
-  metadata        String?
-  createdAt       DateTime      @default(now())
+  id             String    @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  issueId        String?
+  issue          Issue?    @relation(fields: [issueId], references: [id], onDelete: Cascade)
+  actorId        String
+  actor          User      @relation(fields: [actorId], references: [id], onDelete: Cascade)
+  type           String
+  message        String
+  metadata       String?
+  createdAt      DateTime  @default(now())
+}
+
+model Invitation {
+    id              String       @id @default(cuid())
+    email           String
+    token           String       @unique
+    expires         DateTime
+    organizationId  String
+    organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+    createdAt       DateTime     @default(now())
+
+    @@unique([email, organizationId])
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      String   // e.g., MENTION, ASSIGNMENT
+  message   String
+  url       String   // URL to navigate to on click
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
 }

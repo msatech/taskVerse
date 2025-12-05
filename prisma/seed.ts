@@ -9,10 +9,13 @@ async function main() {
 
   await prisma.issueSprint.deleteMany()
   await prisma.comment.deleteMany()
+  await prisma.notification.deleteMany()
+  await prisma.activityLog.deleteMany()
   await prisma.issue.deleteMany()
   await prisma.sprint.deleteMany()
   await prisma.status.deleteMany()
   await prisma.project.deleteMany()
+  await prisma.invitation.deleteMany()
   await prisma.organizationMember.deleteMany()
   await prisma.organization.deleteMany()
   await prisma.user.deleteMany()

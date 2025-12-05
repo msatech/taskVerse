@@ -1,8 +1,8 @@
 
 "use client";
 
-import { Bell, Search } from "lucide-react";
-import type { User } from "@prisma/client";
+import { Search } from "lucide-react";
+import type { User, Notification } from "@prisma/client";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Input } from "@/components/ui/input";
 import { SidebarTrigger } from "@/components/ui/sidebar";
@@ -10,15 +10,16 @@ import { UserProfile } from "./user-profile";
 import { ProjectSwitcher, type OrgMembershipWithProjects } from "./project-switcher";
 import { useParams } from "next/navigation";
 import type { Invitation } from "@prisma/client";
-import { Button } from "../ui/button";
+import { NotificationBell } from "./notification-bell";
 
 type DashboardHeaderProps = {
   user: Pick<User, "name" | "email" | "avatarUrl" | 'id'>;
   orgMemberships: OrgMembershipWithProjects[];
   invitations: Invitation[];
+  initialNotifications: (Notification & { user: { name: string | null, avatarUrl: string | null } })[]
 };
 
-export function DashboardHeader({ user, orgMemberships, invitations }: DashboardHeaderProps) {
+export function DashboardHeader({ user, orgMemberships, invitations, initialNotifications }: DashboardHeaderProps) {
   const params = useParams();
   const { orgSlug, projectKey } = params;
 
@@ -49,13 +50,7 @@ export function DashboardHeader({ user, orgMemberships, invitations }: Dashboard
           </div>
         </form>
         <ThemeToggle />
-         <div className="relative">
-            <Button variant="ghost" size="icon">
-                <Bell className="h-5 w-5" />
-                <span className="sr-only">Notifications</span>
-            </Button>
-            {invitations.length > 0 && <span className="absolute top-1 right-1 flex h-2 w-2 rounded-full bg-primary" />}
-        </div>
+        <NotificationBell initialNotifications={initialNotifications} invitations={invitations} />
         <UserProfile user={user} invitations={invitations} />
       </div>
     </header>

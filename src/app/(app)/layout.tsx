@@ -5,6 +5,7 @@ import { SidebarProvider, Sidebar, SidebarInset } from "@/components/ui/sidebar"
 import { getSession } from "@/lib/session";
 import { redirect } from 'next/navigation';
 import db from "@/lib/db";
+import { Notification } from "@prisma/client";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const user = await getSession();
@@ -33,10 +34,23 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     }
   });
 
+  const notifications = await db.notification.findMany({
+      where: {
+          userId: user.id,
+      },
+      orderBy: {
+          createdAt: 'desc',
+      },
+      take: 20,
+      include: {
+          user: true // The user who created the notification
+      }
+  });
+
   return (
     <SidebarProvider>
       <div className="relative flex min-h-screen flex-col bg-background">
-        <DashboardHeader user={user} orgMemberships={orgMemberships} invitations={invitations} />
+        <DashboardHeader user={user} orgMemberships={orgMemberships} invitations={invitations} initialNotifications={notifications as (Notification & { user: {name: string | null, avatarUrl: string | null}} )[]} />
         <div className="flex flex-1">
           <Sidebar collapsible="icon" side="left" variant="sidebar" className="bg-sidebar border-r">
             <DashboardSidebar orgMemberships={orgMemberships} />
