@@ -30,6 +30,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
 import type { Organization } from "@prisma/client";
 import { createProject } from "@/lib/actions";
+import { Label } from "../ui/label";
 
 type CreateProjectDialogProps = {
   organization: Organization;
