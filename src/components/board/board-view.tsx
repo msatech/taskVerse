@@ -8,21 +8,21 @@ import { IssueDetails } from "./issue-details";
 import { updateIssueStatus } from "@/lib/actions";
 import { useToast } from "@/hooks/use-toast";
 
-type IssueWithAssignee = Issue & { assignee: User | null; reporter: User };
+type IssueFull = Issue & { assignee: User | null; reporter: User, status: Status };
 type BoardViewProps = {
   project: Project & { organization: { slug: string } };
   statuses: Status[];
-  issues: IssueWithAssignee[];
+  issues: IssueFull[];
   users: User[];
 };
 
 type BoardState = {
-  [key: string]: IssueWithAssignee[];
+  [key: string]: IssueFull[];
 };
 
 export function BoardView({ project, statuses, issues: initialIssues, users }: BoardViewProps) {
   const [boardState, setBoardState] = useState<BoardState>({});
-  const [selectedIssue, setSelectedIssue] = useState<IssueWithAssignee | null>(null);
+  const [selectedIssue, setSelectedIssue] = useState<IssueFull | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -54,12 +54,17 @@ export function BoardView({ project, statuses, issues: initialIssues, users }: B
       if (issueIndex === -1) return;
 
       const [movedIssue] = fromColumn.splice(issueIndex, 1);
+      
+      const newStatus = statuses.find(s => s.id === toStatusId);
+      if (!newStatus) return;
+
+      const updatedIssue = { ...movedIssue, statusId: toStatusId, status: newStatus };
       const originalBoardState = { ...boardState };
 
       // Optimistic update
       setBoardState(prevState => {
         const newFromColumn = [...(prevState[fromStatusId] || [])].filter(i => i.id !== issueId);
-        const newToColumn = [...(prevState[toStatusId] || []), { ...movedIssue, statusId: toStatusId }];
+        const newToColumn = [...(prevState[toStatusId] || []), updatedIssue];
         return {
           ...prevState,
           [fromStatusId]: newFromColumn,
@@ -74,7 +79,7 @@ export function BoardView({ project, statuses, issues: initialIssues, users }: B
         }
         toast({
           title: "Issue updated",
-          description: `Moved ${movedIssue.key} to new status.`,
+          description: `Moved ${movedIssue.key} to ${newStatus.name}.`,
         });
       } catch (error) {
         // Revert on failure
@@ -93,17 +98,24 @@ export function BoardView({ project, statuses, issues: initialIssues, users }: B
     e.preventDefault();
   };
 
-  const handleCardClick = (issue: IssueWithAssignee) => {
+  const handleCardClick = (issue: IssueFull) => {
     setSelectedIssue(issue);
   };
 
-  const handleIssueUpdate = (updatedIssue: Partial<IssueWithAssignee>) => {
+  const handleIssueUpdate = (updatedIssue: Partial<IssueFull>) => {
      setBoardState(prevState => {
         const newState = {...prevState};
         for (const statusId in newState) {
             const issueIndex = newState[statusId].findIndex(i => i.id === updatedIssue.id);
             if (issueIndex > -1) {
-                newState[statusId][issueIndex] = { ...newState[statusId][issueIndex], ...updatedIssue };
+                // If status was changed, move the issue
+                if (updatedIssue.statusId && updatedIssue.statusId !== statusId) {
+                    const [movedIssue] = newState[statusId].splice(issueIndex, 1);
+                    const newColumn = newState[updatedIssue.statusId] || [];
+                    newState[updatedIssue.statusId] = [...newColumn, { ...movedIssue, ...updatedIssue }];
+                } else {
+                    newState[statusId][issueIndex] = { ...newState[statusId][issueIndex], ...updatedIssue };
+                }
                 break;
             }
         }
@@ -113,6 +125,16 @@ export function BoardView({ project, statuses, issues: initialIssues, users }: B
          setSelectedIssue(prev => prev ? {...prev, ...updatedIssue} : null);
      }
   }
+  
+    const onIssueCreated = (newIssue: IssueFull) => {
+        setBoardState(prevState => {
+            const newColumn = [...(prevState[newIssue.statusId] || []), newIssue];
+            return {
+                ...prevState,
+                [newIssue.statusId]: newColumn,
+            };
+        });
+    }
 
   return (
     <>
@@ -133,6 +155,7 @@ export function BoardView({ project, statuses, issues: initialIssues, users }: B
         <IssueDetails
           issueId={selectedIssue.id}
           projectUsers={users}
+          statuses={statuses}
           isOpen={!!selectedIssue}
           onOpenChange={(open) => {
             if (!open) {

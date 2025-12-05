@@ -36,7 +36,17 @@ export const createProjectActionSchema = createProjectFormSchema.extend({
   organizationId: z.string(),
 });
 
+export const createIssueSchema = z.object({
+  title: z.string().min(1, "Title is required."),
+  type: z.enum(["STORY", "TASK", "BUG", "EPIC"]),
+  statusId: z.string().min(1, "Status is required."),
+  priority: z.enum(["NONE", "LOW", "MEDIUM", "HIGH", "CRITICAL"]),
+  assigneeId: z.string().optional(),
+  projectId: z.string().min(1, "Project is required."),
+});
+
 
 export type SignupFormValues = z.infer<typeof signupSchema>;
 export type LoginFormValues = z.infer<typeof loginSchema>;
 export type CreateProjectFormValues = z.infer<typeof createProjectFormSchema>;
+export type CreateIssueFormValues = z.infer<typeof createIssueSchema>;

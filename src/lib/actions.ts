@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import db from "./db";
 import { getSession } from "./session";
 import { z } from "zod";
-import { createProjectActionSchema } from "./validators";
+import { createProjectActionSchema, createIssueSchema } from "./validators";
 
 export async function createProject(values: z.infer<typeof createProjectActionSchema>) {
     const user = await getSession();
@@ -86,17 +86,17 @@ export async function createProject(values: z.infer<typeof createProjectActionSc
 export async function updateIssueStatus(issueId: string, statusId: string, orgSlug: string, projectKey: string) {
     const user = await getSession();
     if (!user) {
-        throw new Error("Not authenticated");
+       return { success: false, error: "Not authenticated" };
     }
 
     try {
         const issue = await db.issue.findUnique({
             where: { id: issueId },
-            include: { project: { include: { organization: true } } }
+            include: { project: true }
         });
 
         if (!issue) {
-            throw new Error("Issue not found");
+             return { success: false, error: "Issue not found" };
         }
 
         const orgMember = await db.organizationMember.findFirst({
@@ -107,7 +107,7 @@ export async function updateIssueStatus(issueId: string, statusId: string, orgSl
         });
 
         if (!orgMember) {
-            throw new Error("Not authorized");
+             return { success: false, error: "Not authorized" };
         }
 
         await db.issue.update({
@@ -125,25 +125,24 @@ export async function updateIssueStatus(issueId: string, statusId: string, orgSl
     }
 }
 
-
 export async function createComment(issueId: string, body: string, orgSlug: string, projectKey: string) {
     const user = await getSession();
     if (!user) {
-        throw new Error("Not authenticated");
+        return { success: false, error: "Not authenticated" };
     }
 
     if (!body.trim()) {
-        throw new Error("Comment body cannot be empty");
+        return { success: false, error: "Comment body cannot be empty" };
     }
 
     try {
         const issue = await db.issue.findUnique({
             where: { id: issueId },
-            include: { project: { include: { organization: true } } }
+            include: { project: true }
         });
 
         if (!issue) {
-            throw new Error("Issue not found");
+            return { success: false, error: "Issue not found" };
         }
 
         const orgMember = await db.organizationMember.findFirst({
@@ -154,7 +153,7 @@ export async function createComment(issueId: string, body: string, orgSlug: stri
         });
 
         if (!orgMember) {
-            throw new Error("Not authorized");
+            return { success: false, error: "Not authorized" };
         }
 
         const comment = await db.comment.create({
@@ -175,5 +174,94 @@ export async function createComment(issueId: string, body: string, orgSlug: stri
     } catch (error) {
         console.error("Failed to create comment:", error);
         return { success: false, error: error instanceof Error ? error.message : "Unknown error" };
+    }
+}
+
+export async function updateIssue(issueId: string, data: any, orgSlug: string, projectKey: string) {
+    const user = await getSession();
+    if (!user) {
+        return { success: false, error: "Not authenticated" };
+    }
+
+    try {
+        // Validation can be more granular here based on `data`
+        const issue = await db.issue.findUnique({ where: { id: issueId }, include: { project: true } });
+        if (!issue) return { success: false, error: "Issue not found" };
+
+        const orgMember = await db.organizationMember.findFirst({
+            where: { userId: user.id, organizationId: issue.project.organizationId }
+        });
+        if (!orgMember) return { success: false, error: "Not authorized" };
+
+        const updatedIssue = await db.issue.update({
+            where: { id: issueId },
+            data,
+        });
+
+        revalidatePath(`/${orgSlug}/${projectKey}/board`);
+        revalidatePath(`/${orgSlug}/${projectKey}/backlog`);
+        revalidatePath(`/api/issues/${issueId}`);
+        
+        return { success: true, issue: updatedIssue };
+
+    } catch (error) {
+        console.error("Failed to update issue:", error);
+        return { success: false, error: "An unknown error occurred" };
+    }
+}
+
+export async function createIssue(values: z.infer<typeof createIssueSchema>, orgSlug: string) {
+    const user = await getSession();
+    if (!user) {
+        return { success: false, error: "Not authenticated" };
+    }
+
+    try {
+        const validatedValues = createIssueSchema.parse(values);
+
+        const project = await db.project.findUnique({
+            where: { id: validatedValues.projectId },
+            include: { issues: { select: { key: true } } }
+        });
+        if (!project) return { success: false, error: "Project not found" };
+
+        const orgMember = await db.organizationMember.findFirst({
+            where: { userId: user.id, organizationId: project.organizationId }
+        });
+        if (!orgMember) return { success: false, error: "Not authorized" };
+
+        const lastIssue = await db.issue.findFirst({
+            where: { projectId: project.id },
+            orderBy: { createdAt: 'desc' },
+            select: { key: true }
+        });
+        
+        const lastIssueNumber = lastIssue ? parseInt(lastIssue.key.split('-')[1]) : 0;
+        const newIssueKey = `${project.key}-${lastIssueNumber + 1}`;
+
+        const issue = await db.issue.create({
+            data: {
+                ...validatedValues,
+                key: newIssueKey,
+                reporterId: user.id,
+            },
+            include: {
+                assignee: true,
+                reporter: true,
+                status: true,
+            }
+        });
+
+        revalidatePath(`/${orgSlug}/${project.key}/board`);
+        revalidatePath(`/${orgSlug}/${project.key}/backlog`);
+
+        return { success: true, issue };
+
+    } catch (error) {
+        console.error("Failed to create issue:", error);
+        if (error instanceof z.ZodError) {
+             return { success: false, error: "Invalid data provided." };
+        }
+        return { success: false, error: error instanceof Error ? error.message : "An unknown error occurred." };
     }
 }
