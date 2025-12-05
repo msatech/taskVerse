@@ -24,14 +24,16 @@ export function AcceptInvite({ token, invitation }: AcceptInviteProps) {
     useEffect(() => {
         const handleAccept = async () => {
             const result = await acceptInvitation(token);
-            if (result.success && result.organizationSlug) {
+            if (result.success && result.redirectUrl) {
                 toast({
                     title: "Invitation Accepted!",
                     description: `You have successfully joined ${invitation.organization.name}.`,
                 });
                 setStatus('success');
-                router.push(`/${result.organizationSlug}`);
-                router.refresh();
+                // Use router.replace to avoid adding the invite page to history
+                router.replace(result.redirectUrl);
+                // Hard refresh to ensure all session/layout data is up-to-date
+                router.refresh(); 
             } else {
                 setErrorMessage(result.error || "Failed to accept invitation.");
                 setStatus('error');
@@ -53,7 +55,7 @@ export function AcceptInvite({ token, invitation }: AcceptInviteProps) {
             {status === 'success' && (
                  <div className="text-center">
                     <Loader2 className="h-8 w-8 animate-spin mx-auto text-muted-foreground" />
-                    <p className="mt-4 text-muted-foreground">Redirecting you to your new organization...</p>
+                    <p className="mt-4 text-muted-foreground">Redirecting you to your new workspace...</p>
                 </div>
             )}
             {status === 'error' && (

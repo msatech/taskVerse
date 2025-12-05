@@ -1,3 +1,4 @@
+
 import { IssueTaggingForm } from '@/components/project/issue-tagging-form';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Waypoints, ListTodo, CircleDot, CheckCircle } from 'lucide-react';
@@ -78,9 +79,9 @@ export default async function ProjectDashboardPage({ params }: ProjectDashboardP
             <IssueTaggingForm />
           </CardContent>
         </Card>
-        <div className="col-span-3">
+        <Card className="col-span-3">
             <IssuesByStatusChart data={issuesByStatusData} />
-        </div>
+        </Card>
       </div>
     </div>
   );

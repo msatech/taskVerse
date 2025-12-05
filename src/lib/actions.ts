@@ -442,9 +442,6 @@ export async function inviteMember(values: z.infer<typeof inviteMemberSchema>) {
             return { success: false, error: "An invitation has already been sent to this email address."}
         }
 
-
-        // TODO: In a real app, you would send an email with the link.
-        // For now, we'll just create the invitation and log the link.
         const token = randomBytes(32).toString("hex");
         const expires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
 
@@ -452,6 +449,7 @@ export async function inviteMember(values: z.infer<typeof inviteMemberSchema>) {
             data: {
                 email: validatedValues.email,
                 organizationId: validatedValues.organizationId,
+                organizationName: org.name,
                 token,
                 expires
             }
@@ -496,10 +494,13 @@ export async function acceptInvitation(token: string) {
         }
 
         if (invitation.email !== user.email) {
-            return { success: false, error: "This invitation is for a different email address." };
+            return { success: false, error: `This invitation is for ${invitation.email}. Please log in with the correct account.` };
         }
 
-        const org = await db.organization.findUnique({ where: { id: invitation.organizationId }});
+        const org = await db.organization.findUnique({ 
+            where: { id: invitation.organizationId },
+            include: { projects: { orderBy: { createdAt: 'asc' }, take: 1 } }
+        });
         if (!org) {
              return { success: false, error: "Organization not found." };
         }
@@ -529,11 +530,16 @@ export async function acceptInvitation(token: string) {
 
         revalidatePath(`/`, 'layout');
 
-        return { success: true, organizationSlug: org.slug };
+        const redirectUrl = org.projects[0] ? `/${org.slug}/${org.projects[0].key}` : `/${org.slug}`;
+
+
+        return { success: true, organizationSlug: org.slug, redirectUrl };
 
     } catch (error) {
         // Handle case where user is already a member
         if (error instanceof Error && (error as any).code === 'P2002') {
+             await db.invitation.delete({ where: { token }});
+             revalidatePath('/', 'layout');
              return { success: false, error: "You are already a member of this organization." };
         }
         console.error("Failed to accept invitation:", error);
