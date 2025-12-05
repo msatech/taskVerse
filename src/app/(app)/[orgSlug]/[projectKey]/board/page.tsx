@@ -1,3 +1,4 @@
+
 import { notFound } from "next/navigation";
 import db from "@/lib/db";
 import { BoardView } from "@/components/board/board-view";
@@ -25,6 +26,7 @@ export default async function ProjectBoardPage({ params }: ProjectBoardPageProps
                 include: {
                     assignee: true,
                     reporter: true,
+                    status: true,
                 },
                 orderBy: {
                     createdAt: 'desc' // This ordering can be more sophisticated (e.g., rank)

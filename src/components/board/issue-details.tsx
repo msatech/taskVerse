@@ -3,10 +3,9 @@
 
 import { useEffect, useState, useTransition } from "react";
 import type { Issue, User, Status, Comment } from "@prisma/client";
-import { format } from "date-fns";
+import { format, formatDistanceToNow } from "date-fns";
 import { useForm } from "react-hook-form";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
@@ -29,12 +28,18 @@ import {
   Calendar,
   Clock,
   Loader2,
+  MoreHorizontal,
+  Trash2,
+  Pencil,
 } from "lucide-react";
 import { Textarea } from "../ui/textarea";
 import { Form, FormControl, FormField, FormItem, FormMessage } from "../ui/form";
-import { createComment } from "@/lib/actions";
+import { createComment, updateIssue } from "@/lib/actions";
 import { useToast } from "@/hooks/use-toast";
 import { useParams } from "next/navigation";
+import { getPriorityIcon, getIssueTypeIcon, getPriorityColorClass } from "@/lib/utils";
+import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
 
 
 type DetailedIssue = Issue & {
@@ -47,38 +52,17 @@ type DetailedIssue = Issue & {
 type IssueDetailsProps = {
   issueId: string;
   projectUsers: User[];
+  statuses: Status[];
   isOpen: boolean;
   onOpenChange: (isOpen: boolean) => void;
   onIssueUpdate: (issue: Partial<DetailedIssue>) => void;
 };
 
-const issueTypeIcons: Record<Issue["type"], React.ElementType> = {
-  STORY: CheckCircle,
-  TASK: TypeIcon,
-  BUG: Bug,
-  EPIC: ChevronsUp,
-};
 
-const priorityIcons: Record<Issue["priority"], React.ElementType> = {
-  NONE: ArrowDown,
-  LOW: ArrowDown,
-  MEDIUM: ArrowUp,
-  HIGH: ArrowUp,
-  CRITICAL: ArrowUp,
-};
-
-const priorityColors: Record<Issue["priority"], string> = {
-    NONE: "text-muted-foreground",
-    LOW: "text-green-500",
-    MEDIUM: "text-yellow-500",
-    HIGH: "text-orange-500",
-    CRITICAL: "text-red-500",
-}
-
-export function IssueDetails({ issueId, isOpen, onOpenChange, onIssueUpdate }: IssueDetailsProps) {
+export function IssueDetails({ issueId, projectUsers, statuses, isOpen, onOpenChange, onIssueUpdate }: IssueDetailsProps) {
   const [issue, setIssue] = useState<DetailedIssue | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [isPending, startTransition] = useTransition();
+  const [isCommentPending, startCommentTransition] = useTransition();
   const { toast } = useToast();
   const params = useParams();
   const { orgSlug, projectKey } = params;
@@ -116,17 +100,61 @@ export function IssueDetails({ issueId, isOpen, onOpenChange, onIssueUpdate }: I
   }, [isOpen, issueId, toast]);
 
   const onSubmitComment = (values: { body: string }) => {
-    startTransition(async () => {
+    startCommentTransition(async () => {
         const result = await createComment(issueId, values.body, orgSlug as string, projectKey as string);
         if (result.success && result.comment) {
             setIssue(prev => prev ? ({ ...prev, comments: [...prev.comments, result.comment as any] }) : null);
             form.reset();
             toast({ title: "Comment added" });
         } else {
-            toast({ variant: "destructive", title: "Error", description: "Could not add comment." });
+            toast({ variant: "destructive", title: "Error", description: result.error || "Could not add comment." });
         }
     });
   }
+
+  const handleFieldUpdate = async (field: keyof Issue, value: any) => {
+    if (!issue) return;
+
+    const originalIssue = {...issue};
+    const updatedData = { [field]: value };
+    
+    // Optimistic update
+    const updatedIssue = { ...issue, ...updatedData };
+    
+    if (field === 'statusId') {
+        const newStatus = statuses.find(s => s.id === value);
+        if (newStatus) {
+            updatedIssue.status = newStatus;
+        }
+    }
+     if (field === 'assigneeId') {
+        const newAssignee = projectUsers.find(u => u.id === value);
+        updatedIssue.assignee = newAssignee || null;
+    }
+
+
+    setIssue(updatedIssue);
+    onIssueUpdate(updatedIssue);
+    
+    try {
+        const result = await updateIssue(issue.id, updatedData, orgSlug as string, projectKey as string);
+        if (!result.success) {
+            throw new Error(result.error);
+        }
+        toast({
+            title: "Issue updated",
+            description: `Issue ${field} has been changed.`
+        });
+    } catch (error) {
+        setIssue(originalIssue); // Revert on failure
+        onIssueUpdate(originalIssue);
+        toast({
+            variant: "destructive",
+            title: "Update failed",
+            description: error instanceof Error ? error.message : "Could not update issue."
+        });
+    }
+  };
 
   const avatarPlaceholder = PlaceHolderImages.find((img) => img.id === "user-avatar");
 
@@ -140,26 +168,56 @@ export function IssueDetails({ issueId, isOpen, onOpenChange, onIssueUpdate }: I
     </div>
   );
 
-  const renderUser = (user: User | null) => {
-    if (!user) return <span className="text-muted-foreground">Unassigned</span>;
-    const fallback = user.name ? user.name.charAt(0).toUpperCase() : "U";
+  const renderUser = (user: User | null, field: 'assigneeId' | 'reporterId') => {
+    if (!user && field === 'reporterId') return <span className="text-muted-foreground">Unknown</span>;
+
+    const PopoverContent = (
+         <div className="space-y-2">
+            <p className="text-sm font-semibold">Change {field === 'assigneeId' ? 'assignee' : 'reporter'}</p>
+            <Select onValueChange={(userId) => handleFieldUpdate(field, userId)} defaultValue={user?.id}>
+              <SelectTrigger>
+                <SelectValue placeholder={`Select a user...`} />
+              </SelectTrigger>
+              <SelectContent>
+                {field === 'assigneeId' && <SelectItem value="unassigned">Unassigned</SelectItem>}
+                {projectUsers.map(u => (
+                  <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+        </div>
+    )
+
+    const UserDisplay = (
+        <div className="flex items-center gap-2">
+            <Avatar className="h-6 w-6">
+            <AvatarImage src={user?.avatarUrl || avatarPlaceholder?.imageUrl} />
+            <AvatarFallback>{user?.name ? user.name.charAt(0).toUpperCase() : "U"}</AvatarFallback>
+            </Avatar>
+            <span>{user?.name || 'Unassigned'}</span>
+        </div>
+    )
+    
     return (
-      <div className="flex items-center gap-2">
-        <Avatar className="h-6 w-6">
-          <AvatarImage src={user.avatarUrl || avatarPlaceholder?.imageUrl} />
-          <AvatarFallback>{fallback}</AvatarFallback>
-        </Avatar>
-        <span>{user.name}</span>
-      </div>
-    );
+        <Popover>
+            <PopoverTrigger asChild>
+                 <Button variant="ghost" className="h-auto p-1 -m-1" disabled={field === 'reporterId'}>
+                    {UserDisplay}
+                 </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-60 p-2">
+               {PopoverContent}
+            </PopoverContent>
+        </Popover>
+    )
   };
   
-  const PriorityIcon = issue ? priorityIcons[issue.priority] : null;
-  const TypeIcon = issue ? issueTypeIcons[issue.type] : null;
+  const PriorityIcon = issue ? getPriorityIcon(issue.priority) : ArrowDown;
+  const TypeIcon = issue ? getIssueTypeIcon(issue.type) : TypeIcon;
 
   return (
     <Sheet open={isOpen} onOpenChange={onOpenChange}>
-      <SheetContent className="w-full max-w-2xl p-0 sm:max-w-3xl lg:max-w-4xl">
+      <SheetContent className="w-full max-w-2xl p-0 sm:max-w-3xl lg:max-w-4xl" side="right">
         <ScrollArea className="h-full">
           {isLoading ? (
             <div className="grid grid-cols-1 lg:grid-cols-3">
@@ -192,7 +250,7 @@ export function IssueDetails({ issueId, isOpen, onOpenChange, onIssueUpdate }: I
                 </SheetHeader>
                 <div>
                   <h3 className="mb-2 text-lg font-semibold">Description</h3>
-                  <p className="text-sm text-muted-foreground">
+                  <p className="text-sm text-muted-foreground whitespace-pre-wrap">
                     {issue.description || "No description provided."}
                   </p>
                 </div>
@@ -211,7 +269,7 @@ export function IssueDetails({ issueId, isOpen, onOpenChange, onIssueUpdate }: I
                             <div className="flex items-center gap-2">
                               <span className="font-semibold">{comment.author.name}</span>
                               <span className="text-xs text-muted-foreground">
-                                {format(new Date(comment.createdAt), "MMM d, yyyy 'at' h:mm a")}
+                                {formatDistanceToNow(new Date(comment.createdAt), { addSuffix: true })}
                               </span>
                             </div>
                             <p className="text-sm mt-1">{comment.body}</p>
@@ -240,8 +298,8 @@ export function IssueDetails({ issueId, isOpen, onOpenChange, onIssueUpdate }: I
                                             </FormItem>
                                         )}
                                     />
-                                    <Button type="submit" size="sm" disabled={isPending}>
-                                        {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                    <Button type="submit" size="sm" disabled={isCommentPending}>
+                                        {isCommentPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                                         Comment
                                     </Button>
                                 </form>
@@ -254,15 +312,38 @@ export function IssueDetails({ issueId, isOpen, onOpenChange, onIssueUpdate }: I
               <div className="lg:col-span-1 space-y-4 border-l bg-secondary/50 p-6">
                 <h3 className="text-lg font-semibold">Details</h3>
                 <div className="space-y-4">
-                  {renderField(TypeIcon!, "Type", <Badge variant="secondary">{issue.type}</Badge>)}
-                  {renderField(priorityIcons.HIGH, "Status", <Badge>{issue.status.name}</Badge>)}
-                  {renderField(UserIcon, "Assignee", renderUser(issue.assignee))}
-                  {renderField(UserIcon, "Reporter", renderUser(issue.reporter))}
-                  {PriorityIcon && renderField(PriorityIcon, "Priority", <span className={priorityColors[issue.priority]}>{issue.priority}</span>)}
+                    <div className="grid grid-cols-[100px_1fr] items-center gap-4">
+                         <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                            <Pencil className="h-4 w-4" />
+                            <span>Status</span>
+                         </div>
+                         <Select onValueChange={(statusId) => handleFieldUpdate('statusId', statusId)} defaultValue={issue.statusId}>
+                            <SelectTrigger className="text-sm font-medium h-auto p-1.5">
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {statuses.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+                            </SelectContent>
+                         </Select>
+                    </div>
+                  {renderField(TypeIcon, "Type", 
+                    <div className="flex items-center gap-2">
+                        {React.createElement(TypeIcon, {className: "h-4 w-4"})}
+                        <span>{issue.type}</span>
+                    </div>
+                  )}
+                  {renderField(UserIcon, "Assignee", renderUser(issue.assignee, 'assigneeId'))}
+                  {renderField(UserIcon, "Reporter", renderUser(issue.reporter, 'reporterId'))}
+                  {renderField(PriorityIcon, "Priority", 
+                    <span className={`${getPriorityColorClass(issue.priority)} flex items-center gap-2`}>
+                        {React.createElement(PriorityIcon, {className: "h-4 w-4"})}
+                        {issue.priority}
+                    </span>
+                   )}
                   {renderField(Calendar, "Due Date", issue.dueDate ? format(new Date(issue.dueDate), "MMM d, yyyy") : "None")}
                   <Separator />
-                   {renderField(Clock, "Created", format(new Date(issue.createdAt), "MMM d, yyyy"))}
-                   {renderField(Clock, "Updated", format(new Date(issue.updatedAt), "MMM d, yyyy"))}
+                   {renderField(Clock, "Created", formatDistanceToNow(new Date(issue.createdAt), { addSuffix: true }))}
+                   {renderField(Clock, "Updated", formatDistanceToNow(new Date(issue.updatedAt), { addSuffix: true }))}
                 </div>
               </div>
             </div>
