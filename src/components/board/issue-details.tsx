@@ -166,7 +166,7 @@ export function IssueDetails({ issueId, projectUsers, statuses, isOpen, onOpenCh
   const renderUser = (user: User | null, field: 'assigneeId' | 'reporterId') => {
     if (!user && field === 'reporterId') return <span className="text-muted-foreground">Unknown</span>;
 
-    const PopoverContent = (
+    const PopoverContentComponent = () => (
          <div className="space-y-2">
             <p className="text-sm font-semibold">Change {field === 'assigneeId' ? 'assignee' : 'reporter'}</p>
             <Select onValueChange={(userId) => handleFieldUpdate(field, userId)} defaultValue={user?.id}>
@@ -181,9 +181,9 @@ export function IssueDetails({ issueId, projectUsers, statuses, isOpen, onOpenCh
               </SelectContent>
             </Select>
         </div>
-    )
+    );
 
-    const UserDisplay = (
+    const UserDisplayComponent = () => (
         <div className="flex items-center gap-2">
             <Avatar className="h-6 w-6">
             <AvatarImage src={user?.avatarUrl || avatarPlaceholder?.imageUrl} />
@@ -191,17 +191,17 @@ export function IssueDetails({ issueId, projectUsers, statuses, isOpen, onOpenCh
             </Avatar>
             <span>{user?.name || 'Unassigned'}</span>
         </div>
-    )
+    );
     
     return (
         <Popover>
             <PopoverTrigger asChild>
                  <Button variant="ghost" className="h-auto p-1 -m-1" disabled={field === 'reporterId'}>
-                    {UserDisplay}
+                    <UserDisplayComponent />
                  </Button>
             </PopoverTrigger>
             <PopoverContent className="w-60 p-2">
-               {PopoverContent}
+               <PopoverContentComponent />
             </PopoverContent>
         </Popover>
     )
@@ -215,7 +215,7 @@ export function IssueDetails({ issueId, projectUsers, statuses, isOpen, onOpenCh
       <SheetContent className="w-full max-w-2xl p-0 sm:max-w-3xl lg:max-w-4xl" side="right">
         <ScrollArea className="h-full">
           {isLoading ? (
-            <div className="grid grid-cols-1 lg:grid-cols-3">
+            <div className="grid grid-cols-1 lg:grid-cols-3 h-full">
               <div className="lg:col-span-2 space-y-6 p-6">
                  <SheetHeader>
                   <SheetTitle>
