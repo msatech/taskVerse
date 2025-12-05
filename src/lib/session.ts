@@ -28,8 +28,8 @@ export async function decrypt(input: string): Promise<any> {
 
 export async function login(user: Omit<User, 'hashedPassword'>) {
   const session = await encrypt({ user, expires: new Date(Date.now() + 24 * 60 * 60 * 1000) });
-
-  cookies().set("session", session, {
+  const cookieStore = cookies();
+  cookieStore.set("session", session, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     maxAge: 60 * 60 * 24, // 1 day
@@ -38,11 +38,13 @@ export async function login(user: Omit<User, 'hashedPassword'>) {
 }
 
 export async function logout() {
-  cookies().set("session", "", { expires: new Date(0) });
+  const cookieStore = cookies();
+  cookieStore.set("session", "", { expires: new Date(0) });
 }
 
 export async function getSession() {
-  const sessionCookie = cookies().get("session")?.value;
+  const cookieStore = cookies();
+  const sessionCookie = cookieStore.get("session")?.value;
   if (!sessionCookie) return null;
 
   const decryptedSession = await decrypt(sessionCookie);
