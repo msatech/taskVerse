@@ -134,16 +134,20 @@ export function BoardView({ project, statuses, issues: initialIssues, users }: B
      }
   }
   
-    const onIssueCreated = (newIssue: IssueFull) => {
-        setBoardState(prevState => {
-            const newColumn = [...(prevState[newIssue.statusId] || []), newIssue];
-            return {
-                ...prevState,
-                [newIssue.statusId]: newColumn,
-            };
-        });
-        setSelectedIssue(newIssue);
-    }
+  const onIssueCreated = (newIssue: IssueFull) => {
+    const issueWithCount = {
+        ...newIssue,
+        _count: { comments: 0 }
+    };
+    setBoardState(prevState => {
+        const newColumn = [...(prevState[issueWithCount.statusId] || []), issueWithCount];
+        return {
+            ...prevState,
+            [issueWithCount.statusId]: newColumn,
+        };
+    });
+    setSelectedIssue(issueWithCount);
+  }
 
   return (
     <>
