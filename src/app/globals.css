@@ -11,19 +11,19 @@
     --card-foreground: 224 71.4% 4.1%;
     --popover: 0 0% 100%;
     --popover-foreground: 224 71.4% 4.1%;
-    --primary: 180 100% 25%;
+    --primary: 180 100% 25.1%; /* Dark Teal: #008080 */
     --primary-foreground: 0 0% 98%;
     --secondary: 240 4.8% 95.9%;
     --secondary-foreground: 240 5.9% 10%;
     --muted: 240 4.8% 95.9%;
     --muted-foreground: 240 3.8% 46.1%;
-    --accent: 39 100% 50%;
+    --accent: 33 100% 50%; /* Soft Orange: #FFA500 */
     --accent-foreground: 240 5.9% 10%;
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 98%;
     --border: 240 5.9% 90%;
     --input: 240 5.9% 90%;
-    --ring: 180 100% 25%;
+    --ring: 180 100% 25.1%;
     --radius: 0.5rem;
     --chart-1: 12 76% 61%;
     --chart-2: 173 58% 39%;
@@ -41,19 +41,19 @@
   }
  
   .dark {
-    --background: 0 0% 13.3%;
+    --background: 0 0% 13.3%; /* Dark Gray: #222222 */
     --foreground: 0 0% 98%;
     --card: 0 0% 15.9%;
     --card-foreground: 0 0% 98%;
     --popover: 0 0% 15.9%;
     --popover-foreground: 0 0% 98%;
-    --primary: 180 95% 45%;
+    --primary: 180 95% 45%; /* A slightly brighter teal for dark mode */
     --primary-foreground: 0 0% 98%;
     --secondary: 0 0% 15.9%;
     --secondary-foreground: 0 0% 98%;
     --muted: 0 0% 15.9%;
     --muted-foreground: 0 5% 64.9%;
-    --accent: 39 100% 55%;
+    --accent: 33 100% 50%; /* Soft Orange */
     --accent-foreground: 0 0% 98%;
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 0 0% 98%;
