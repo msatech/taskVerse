@@ -25,6 +25,9 @@ export default async function ProjectBacklogPage({ params }: ProjectBacklogPageP
                     assignee: true,
                     status: true,
                     reporter: true,
+                    _count: {
+                        select: { comments: true }
+                    }
                 },
                 orderBy: {
                     createdAt: 'asc' // Replace with rank later
