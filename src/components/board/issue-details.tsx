@@ -54,6 +54,60 @@ type IssueDetailsProps = {
 };
 
 
+// New standalone component for user fields
+type IssueUserFieldProps = {
+  field: 'assigneeId' | 'reporterId';
+  user: User | null;
+  projectUsers: User[];
+  onUpdate: (field: keyof Issue, value: any) => void;
+  disabled?: boolean;
+}
+
+function IssueUserField({ field, user, projectUsers, onUpdate, disabled = false }: IssueUserFieldProps) {
+  const avatarPlaceholder = PlaceHolderImages.find((img) => img.id === "user-avatar");
+  
+  const UserDisplay = () => (
+    <div className="flex items-center gap-2">
+      <Avatar className="h-6 w-6">
+        <AvatarImage src={user?.avatarUrl || avatarPlaceholder?.imageUrl} />
+        <AvatarFallback>{user?.name ? user.name.charAt(0).toUpperCase() : "U"}</AvatarFallback>
+      </Avatar>
+      <span>{user?.name || 'Unassigned'}</span>
+    </div>
+  );
+
+  if (disabled) {
+    return <UserDisplay />;
+  }
+
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button variant="ghost" className="h-auto p-1 -m-1">
+          <UserDisplay />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-60 p-2">
+        <div className="space-y-2">
+          <p className="text-sm font-semibold">Change {field === 'assigneeId' ? 'assignee' : 'reporter'}</p>
+          <Select onValueChange={(userId) => onUpdate(field, userId === 'unassigned' ? null : userId)} defaultValue={user?.id || 'unassigned'}>
+            <SelectTrigger>
+              <SelectValue placeholder={`Select a user...`} />
+            </SelectTrigger>
+            <SelectContent>
+              {field === 'assigneeId' && <SelectItem value="unassigned">Unassigned</SelectItem>}
+              {projectUsers.map(u => (
+                <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+
 export function IssueDetails({ issueId, projectUsers, statuses, isOpen, onOpenChange, onIssueUpdate }: IssueDetailsProps) {
   const [issue, setIssue] = useState<DetailedIssue | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -114,7 +168,7 @@ export function IssueDetails({ issueId, projectUsers, statuses, isOpen, onOpenCh
     const updatedData = { [field]: value };
     
     // Optimistic update
-    const updatedIssue = { ...issue, ...updatedData };
+    const updatedIssue: DetailedIssue = { ...issue, ...updatedData };
     
     if (field === 'statusId') {
         const newStatus = statuses.find(s => s.id === value);
@@ -151,8 +205,6 @@ export function IssueDetails({ issueId, projectUsers, statuses, isOpen, onOpenCh
     }
   };
 
-  const avatarPlaceholder = PlaceHolderImages.find((img) => img.id === "user-avatar");
-
   const renderField = (icon: React.ElementType, label: string, value: React.ReactNode) => (
     <div className="grid grid-cols-[100px_1fr] items-center gap-4">
       <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -162,50 +214,6 @@ export function IssueDetails({ issueId, projectUsers, statuses, isOpen, onOpenCh
       <div className="text-sm font-medium">{value}</div>
     </div>
   );
-
-  const renderUser = (user: User | null, field: 'assigneeId' | 'reporterId') => {
-    if (!user && field === 'reporterId') return <span className="text-muted-foreground">Unknown</span>;
-
-    const PopoverContentComponent = () => (
-         <div className="space-y-2">
-            <p className="text-sm font-semibold">Change {field === 'assigneeId' ? 'assignee' : 'reporter'}</p>
-            <Select onValueChange={(userId) => handleFieldUpdate(field, userId)} defaultValue={user?.id}>
-              <SelectTrigger>
-                <SelectValue placeholder={`Select a user...`} />
-              </SelectTrigger>
-              <SelectContent>
-                {field === 'assigneeId' && <SelectItem value="unassigned">Unassigned</SelectItem>}
-                {projectUsers.map(u => (
-                  <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-        </div>
-    );
-
-    const UserDisplayComponent = () => (
-        <div className="flex items-center gap-2">
-            <Avatar className="h-6 w-6">
-            <AvatarImage src={user?.avatarUrl || avatarPlaceholder?.imageUrl} />
-            <AvatarFallback>{user?.name ? user.name.charAt(0).toUpperCase() : "U"}</AvatarFallback>
-            </Avatar>
-            <span>{user?.name || 'Unassigned'}</span>
-        </div>
-    );
-    
-    return (
-        <Popover>
-            <PopoverTrigger asChild>
-                 <Button variant="ghost" className="h-auto p-1 -m-1" disabled={field === 'reporterId'}>
-                    <UserDisplayComponent />
-                 </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-60 p-2">
-               <PopoverContentComponent />
-            </PopoverContent>
-        </Popover>
-    )
-  };
   
   const IssueTypeIcon = issue ? getIssueTypeIcon(issue.type) : Type;
   const PriorityIcon = issue ? getPriorityIcon(issue.priority) : ArrowDown;
@@ -218,8 +226,8 @@ export function IssueDetails({ issueId, projectUsers, statuses, isOpen, onOpenCh
             <div className="grid grid-cols-1 lg:grid-cols-3 h-full">
               <div className="lg:col-span-2 space-y-6 p-6">
                  <SheetHeader>
-                  <SheetTitle>
-                    <Skeleton className="h-8 w-3/4" />
+                   <SheetTitle>
+                    <Skeleton className="h-8 w-1/2" />
                   </SheetTitle>
                 </SheetHeader>
                 <div className="pt-4 space-y-2">
@@ -261,7 +269,7 @@ export function IssueDetails({ issueId, projectUsers, statuses, isOpen, onOpenCh
                       issue.comments.map((comment) => (
                         <div key={comment.id} className="flex items-start gap-3">
                           <Avatar className="h-8 w-8">
-                            <AvatarImage src={comment.author.avatarUrl || avatarPlaceholder?.imageUrl} />
+                            <AvatarImage src={comment.author.avatarUrl || PlaceHolderImages.find(img => img.id === 'user-avatar')?.imageUrl} />
                             <AvatarFallback>{comment.author.name?.charAt(0)}</AvatarFallback>
                           </Avatar>
                           <div className="flex-1 rounded-md border bg-card p-3">
@@ -331,8 +339,23 @@ export function IssueDetails({ issueId, projectUsers, statuses, isOpen, onOpenCh
                         <span>{issue.type}</span>
                     </div>
                   )}
-                  {renderField(UserIcon, "Assignee", renderUser(issue.assignee, 'assigneeId'))}
-                  {renderField(UserIcon, "Reporter", renderUser(issue.reporter, 'reporterId'))}
+                  {renderField(UserIcon, "Assignee", 
+                      <IssueUserField 
+                        field="assigneeId"
+                        user={issue.assignee}
+                        projectUsers={projectUsers}
+                        onUpdate={handleFieldUpdate}
+                      />
+                  )}
+                  {renderField(UserIcon, "Reporter", 
+                      <IssueUserField 
+                        field="reporterId"
+                        user={issue.reporter}
+                        projectUsers={projectUsers}
+                        onUpdate={handleFieldUpdate}
+                        disabled
+                      />
+                  )}
                   {renderField(PriorityIcon, "Priority", 
                     <span className={`${getPriorityColorClass(issue.priority)} flex items-center gap-2`}>
                         {React.createElement(PriorityIcon, {className: "h-4 w-4"})}
@@ -352,3 +375,5 @@ export function IssueDetails({ issueId, projectUsers, statuses, isOpen, onOpenCh
     </Sheet>
   );
 }
+
+    
