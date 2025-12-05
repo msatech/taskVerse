@@ -8,7 +8,7 @@ import { IssueDetails } from "./issue-details";
 import { updateIssueStatus } from "@/lib/actions";
 import { useToast } from "@/hooks/use-toast";
 
-type IssueFull = Issue & { assignee: User | null; reporter: User, status: Status };
+type IssueFull = Issue & { assignee: User | null; reporter: User; status: Status; _count: { comments: number } };
 type BoardViewProps = {
   project: Project & { organization: { slug: string } };
   statuses: Status[];
@@ -112,9 +112,9 @@ export function BoardView({ project, statuses, issues: initialIssues, users }: B
                 if (updatedIssue.statusId && updatedIssue.statusId !== statusId) {
                     const [movedIssue] = newState[statusId].splice(issueIndex, 1);
                     const newColumn = newState[updatedIssue.statusId] || [];
-                    newState[updatedIssue.statusId] = [...newColumn, { ...movedIssue, ...updatedIssue }];
+                    newState[updatedIssue.statusId] = [...newColumn, { ...movedIssue, ...updatedIssue as IssueFull }];
                 } else {
-                    newState[statusId][issueIndex] = { ...newState[statusId][issueIndex], ...updatedIssue };
+                    newState[statusId][issueIndex] = { ...newState[statusId][issueIndex], ...updatedIssue as IssueFull };
                 }
                 break;
             }
@@ -122,7 +122,7 @@ export function BoardView({ project, statuses, issues: initialIssues, users }: B
         return newState;
      });
      if (selectedIssue && selectedIssue.id === updatedIssue.id) {
-         setSelectedIssue(prev => prev ? {...prev, ...updatedIssue} : null);
+         setSelectedIssue(prev => prev ? {...prev, ...updatedIssue} as IssueFull : null);
      }
   }
   
@@ -138,7 +138,7 @@ export function BoardView({ project, statuses, issues: initialIssues, users }: B
 
   return (
     <>
-      <div className="flex gap-4 h-full items-start">
+      <div className="flex gap-6 h-full items-start">
         {statuses.map(status => (
           <BoardColumn
             key={status.id}

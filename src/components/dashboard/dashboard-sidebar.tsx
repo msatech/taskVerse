@@ -1,3 +1,4 @@
+
 "use client";
 
 import {
@@ -6,6 +7,8 @@ import {
   ListTodo,
   Presentation,
   Settings,
+  Plus,
+  Users,
 } from "lucide-react";
 import {
   SidebarContent,
@@ -20,7 +23,10 @@ import {
 import { Logo } from "../logo";
 import Link from "next/link";
 import { useParams, usePathname } from 'next/navigation';
-import { ProjectSwitcher, type OrgMembershipWithProjects } from "./project-switcher";
+import { type OrgMembershipWithProjects } from "./project-switcher";
+import { Button } from "../ui/button";
+import { CreateProjectDialog } from "../project/create-project-dialog";
+import { useState } from "react";
 
 type DashboardSidebarProps = {
   orgMemberships: OrgMembershipWithProjects[];
@@ -30,6 +36,7 @@ export function DashboardSidebar({ orgMemberships }: DashboardSidebarProps) {
   const pathname = usePathname();
   const params = useParams();
   const { orgSlug, projectKey } = params;
+  const [showCreateProjectDialog, setShowCreateProjectDialog] = useState(false);
 
   const currentOrg = orgMemberships.find(m => m.organization.slug === orgSlug)?.organization;
   const currentProject = currentOrg?.projects.find(p => p.key === projectKey);
@@ -44,38 +51,51 @@ export function DashboardSidebar({ orgMemberships }: DashboardSidebarProps) {
 
   return (
     <>
-      <SidebarHeader>
+      {currentOrg && <CreateProjectDialog open={showCreateProjectDialog} onOpenChange={setShowCreateProjectDialog} organization={currentOrg} />}
+      <SidebarHeader className="border-b">
         <Logo />
       </SidebarHeader>
       <SidebarContent>
         <SidebarGroup>
-          <ProjectSwitcher
-            orgMemberships={orgMemberships}
-            currentOrg={currentOrg}
-            currentProject={currentProject}
-          />
+          <SidebarMenu>
+            {menuItems.map((item) => (
+              <SidebarMenuItem key={item.href}>
+                <SidebarMenuButton asChild isActive={pathname === item.href} tooltip={item.label}>
+                  <Link href={item.href}>
+                    {item.icon}
+                    <span>{item.label}</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            ))}
+          </SidebarMenu>
         </SidebarGroup>
+        
+        <SidebarSeparator />
 
-        {currentProject && (
-          <>
-            <SidebarSeparator />
+        {currentOrg && (
             <SidebarGroup>
-              <SidebarGroupLabel>Menu</SidebarGroupLabel>
+              <SidebarGroupLabel className="flex items-center justify-between">
+                <span>Projects</span>
+                 <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setShowCreateProjectDialog(true)}>
+                    <Plus className="h-4 w-4" />
+                </Button>
+              </SidebarGroupLabel>
               <SidebarMenu>
-                {menuItems.map((item) => (
-                  <SidebarMenuItem key={item.href}>
-                    <SidebarMenuButton asChild isActive={pathname === item.href} tooltip={item.label}>
-                      <Link href={item.href}>
-                        {item.icon}
-                        <span>{item.label}</span>
+                {currentOrg.projects.map(project => (
+                   <SidebarMenuItem key={project.id}>
+                    <SidebarMenuButton asChild isActive={project.key === projectKey} tooltip={project.name}>
+                      <Link href={`/${currentOrg.slug}/${project.key}`}>
+                        <span className="w-4 h-4 rounded-full bg-orange-400" />
+                        <span>{project.name}</span>
                       </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 ))}
               </SidebarMenu>
             </SidebarGroup>
-          </>
         )}
+
       </SidebarContent>
     </>
   );

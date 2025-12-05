@@ -1,13 +1,16 @@
+
 'use client';
 
 import type { Organization, OrganizationMember, Project } from "@prisma/client";
-import { ChevronsUpDown, PlusCircle } from "lucide-react";
+import { ChevronsUpDown, PlusCircle, Check } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, CommandSeparator } from "@/components/ui/command";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { CreateProjectDialog } from "../project/create-project-dialog";
+import { cn } from "@/lib/utils";
+import { Logo } from "../logo";
 
 
 export type OrgMembershipWithProjects = OrganizationMember & {
@@ -28,52 +31,42 @@ export function ProjectSwitcher({ orgMemberships, currentOrg, currentProject }: 
   const [showCreateProjectDialog, setShowCreateProjectDialog] = useState(false);
 
 
-  const handleProjectSelect = (project: Project) => {
-    if (currentOrg) {
+  const handleProjectSelect = (orgSlug: string, projectKey: string) => {
       setOpen(false);
-      router.push(`/${currentOrg.slug}/${project.key}`);
-    }
+      router.push(`/${orgSlug}/${projectKey}`);
   };
 
-  const handleCreateProject = () => {
+  const handleCreateProject = (org: Organization) => {
     setOpen(false);
     setShowCreateProjectDialog(true);
   }
 
-  const activeOrg = currentOrg || orgMemberships[0]?.organization;
-
   return (
     <>
-      {activeOrg && (
+      {currentOrg && (
         <CreateProjectDialog
-          organization={activeOrg}
+          organization={currentOrg}
           open={showCreateProjectDialog}
           onOpenChange={setShowCreateProjectDialog}
         />
       )}
-      {currentOrg && (
-        <Button variant="ghost" className="w-full justify-between">
-          <div className="truncate text-left">
-            <div className="text-xs text-muted-foreground">Organization</div>
-            <div className="font-semibold">{currentOrg.name}</div>
-          </div>
-          <ChevronsUpDown className="h-4 w-4 text-muted-foreground" />
-        </Button>
-      )}
 
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
-          <Button variant="ghost" className="w-full justify-between">
-            <div className="truncate text-left">
-              <div className="text-xs text-muted-foreground">Project</div>
-              <div className="font-semibold">
-                {currentProject ? currentProject.name : "Select a project"}
-              </div>
+          <Button variant="ghost" className="w-full max-w-[240px] justify-between">
+            <div className="flex items-center gap-2">
+                <Logo />
+                {currentProject && (
+                    <>
+                        <span className="text-muted-foreground">/</span>
+                        <span className="font-semibold">{currentProject.name}</span>
+                    </>
+                )}
             </div>
             <ChevronsUpDown className="h-4 w-4 text-muted-foreground" />
           </Button>
         </PopoverTrigger>
-        <PopoverContent className="w-[200px] p-0">
+        <PopoverContent className="w-[240px] p-0">
           <Command>
             <CommandList>
               <CommandInput placeholder="Search project..." />
@@ -83,9 +76,10 @@ export function ProjectSwitcher({ orgMemberships, currentOrg, currentProject }: 
                    {membership.organization.projects.map(project => (
                      <CommandItem
                       key={project.id}
-                      onSelect={() => handleProjectSelect(project)}
+                      onSelect={() => handleProjectSelect(membership.organization.slug, project.key)}
                       className="text-sm cursor-pointer"
                      >
+                        <Check className={cn("mr-2 h-4 w-4", currentProject?.id === project.id ? "opacity-100" : "opacity-0")} />
                        {project.name}
                      </CommandItem>
                    ))}
@@ -95,7 +89,7 @@ export function ProjectSwitcher({ orgMemberships, currentOrg, currentProject }: 
             <CommandSeparator />
             <CommandList>
                 <CommandGroup>
-                    <CommandItem onSelect={handleCreateProject} className="cursor-pointer">
+                    <CommandItem onSelect={() => currentOrg && handleCreateProject(currentOrg)} className="cursor-pointer">
                         <PlusCircle className="mr-2 h-5 w-5" />
                         Create Project
                     </CommandItem>

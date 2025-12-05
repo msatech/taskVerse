@@ -1,3 +1,4 @@
+
 import { DashboardHeader } from "@/components/dashboard/dashboard-header";
 import { DashboardSidebar } from "@/components/dashboard/dashboard-sidebar";
 import { SidebarProvider, Sidebar, SidebarInset } from "@/components/ui/sidebar";
@@ -25,10 +26,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   return (
     <SidebarProvider>
-      <div className="relative flex min-h-screen flex-col">
-        <DashboardHeader user={user} />
+      <div className="relative flex min-h-screen flex-col bg-background">
+        <DashboardHeader user={user} orgMemberships={orgMemberships} />
         <div className="flex flex-1">
-          <Sidebar collapsible="icon" side="left" variant="sidebar" className="bg-sidebar">
+          <Sidebar collapsible="icon" side="left" variant="sidebar" className="bg-sidebar border-r">
             <DashboardSidebar orgMemberships={orgMemberships} />
           </Sidebar>
           <SidebarInset>
