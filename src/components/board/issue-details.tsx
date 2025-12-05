@@ -1,6 +1,7 @@
 
 "use client";
 
+import * as React from "react";
 import { useEffect, useState, useTransition } from "react";
 import type { Issue, User, Status, Comment } from "@prisma/client";
 import { format, formatDistanceToNow } from "date-fns";
@@ -216,7 +217,7 @@ export function IssueDetails({ issueId, projectUsers, statuses, isOpen, onOpenCh
           {isLoading ? (
             <div className="grid grid-cols-1 lg:grid-cols-3">
               <div className="lg:col-span-2 space-y-6 p-6">
-                <SheetHeader>
+                 <SheetHeader>
                   <SheetTitle>
                     <Skeleton className="h-8 w-3/4" />
                   </SheetTitle>
