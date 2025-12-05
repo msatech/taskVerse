@@ -183,7 +183,7 @@ export function CreateIssueDialog({ project, users, statuses, open, onOpenChange
                                 <FormControl>
                                     <SelectTrigger>
                                         <SelectValue placeholder="Priority" />
-                                    </Trigger>
+                                    </SelectTrigger>
                                 </FormControl>
                                 <SelectContent>
                                     <SelectItem value="NONE">None</SelectItem>
@@ -207,7 +207,7 @@ export function CreateIssueDialog({ project, users, statuses, open, onOpenChange
                                 <FormControl>
                                     <SelectTrigger>
                                         <SelectValue placeholder="Unassigned" />
-                                    </Trigger>
+                                    </SelectTrigger>
                                 </FormControl>
                                 <SelectContent>
                                     <SelectItem value="unassigned">Unassigned</SelectItem>
