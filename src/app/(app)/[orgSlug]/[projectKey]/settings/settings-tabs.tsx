@@ -1,4 +1,3 @@
-
 'use client';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -15,9 +14,9 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { inviteMemberSchema, type InviteMemberFormValues } from "@/lib/validators";
 import { Form, FormControl, FormField, FormItem, FormMessage } from "@/components/ui/form";
 import { useTransition } from "react";
-import { inviteMember } from "@/lib/actions";
+import { inviteMember, updateMemberRole, removeMember } from "@/lib/actions";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, UserPlus, Clock } from "lucide-react";
+import { Loader2, UserPlus, Clock, Trash2 } from "lucide-react";
 import {
   Table,
   TableBody,
@@ -27,6 +26,18 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { formatDistanceToNow } from "date-fns";
+import { useRouter } from "next/navigation";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
 
 type MemberWithUser = OrganizationMember & { user: PrismaUser };
 
@@ -41,6 +52,7 @@ export function SettingsTabs({ project, organization, members, currentUserRole }
     const avatarPlaceholder = PlaceHolderImages.find((img) => img.id === "user-avatar");
     const [isPending, startTransition] = useTransition();
     const { toast } = useToast();
+    const router = useRouter();
 
     const form = useForm<InviteMemberFormValues>({
         resolver: zodResolver(inviteMemberSchema),
@@ -56,6 +68,31 @@ export function SettingsTabs({ project, organization, members, currentUserRole }
             if (result.success) {
                 toast({ title: "Success", description: result.message });
                 form.reset();
+                router.refresh();
+            } else {
+                toast({ variant: "destructive", title: "Error", description: result.error });
+            }
+        });
+    }
+
+    const handleRoleChange = (memberId: string, role: string) => {
+        startTransition(async () => {
+             const result = await updateMemberRole(memberId, role);
+             if (result.success) {
+                toast({ title: "Success", description: "Member role updated." });
+                router.refresh();
+            } else {
+                toast({ variant: "destructive", title: "Error", description: result.error });
+            }
+        });
+    }
+
+    const handleRemoveMember = (memberId: string) => {
+         startTransition(async () => {
+             const result = await removeMember(memberId);
+             if (result.success) {
+                toast({ title: "Success", description: "Member removed from organization." });
+                router.refresh();
             } else {
                 toast({ variant: "destructive", title: "Error", description: result.error });
             }
@@ -167,12 +204,11 @@ export function SettingsTabs({ project, organization, members, currentUserRole }
                                         </TableCell>
                                         <TableCell>
                                             {canManageMembers && member.user.id !== organization.ownerId ? (
-                                                 <Select defaultValue={member.role}>
+                                                 <Select defaultValue={member.role} onValueChange={(role) => handleRoleChange(member.id, role)} disabled={isPending}>
                                                     <SelectTrigger className="w-[120px]">
                                                         <SelectValue />
                                                     </SelectTrigger>
                                                     <SelectContent>
-                                                        <SelectItem value="OWNER">Owner</SelectItem>
                                                         <SelectItem value="ADMIN">Admin</SelectItem>
                                                         <SelectItem value="MEMBER">Member</SelectItem>
                                                     </SelectContent>
@@ -183,7 +219,27 @@ export function SettingsTabs({ project, organization, members, currentUserRole }
                                         </TableCell>
                                         <TableCell className="text-right">
                                              {canManageMembers && member.user.id !== organization.ownerId && (
-                                                 <Button variant="outline" size="sm">Remove</Button>
+                                                <AlertDialog>
+                                                    <AlertDialogTrigger asChild>
+                                                        <Button variant="outline" size="icon" disabled={isPending}>
+                                                            <Trash2 className="h-4 w-4" />
+                                                        </Button>
+                                                    </AlertDialogTrigger>
+                                                    <AlertDialogContent>
+                                                        <AlertDialogHeader>
+                                                        <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                                                        <AlertDialogDescription>
+                                                            This will permanently remove <strong>{member.user.name}</strong> from the organization. They will lose access to all projects.
+                                                        </AlertDialogDescription>
+                                                        </AlertDialogHeader>
+                                                        <AlertDialogFooter>
+                                                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                                        <AlertDialogAction onClick={() => handleRemoveMember(member.id)} className="bg-destructive hover:bg-destructive/90">
+                                                            {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Remove"}
+                                                        </AlertDialogAction>
+                                                        </AlertDialogFooter>
+                                                    </AlertDialogContent>
+                                                </AlertDialog>
                                              )}
                                         </TableCell>
                                     </TableRow>

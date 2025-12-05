@@ -1,4 +1,3 @@
-
 'use server'
 
 import { revalidatePath } from "next/cache";
@@ -219,6 +218,7 @@ export async function createComment(issueId: string, body: string, orgSlug: stri
                         type: 'MENTION',
                         message: `<strong>${user.name}</strong> mentioned you in <strong>${issue.key}</strong>`,
                         url,
+                        actorId: user.id
                     }
                 });
             }
@@ -251,6 +251,7 @@ export async function createComment(issueId: string, body: string, orgSlug: stri
                                 type: 'ASSIGNMENT',
                                 message: `<strong>${user.name}</strong> assigned <strong>${issue.key}</strong> to you`,
                                 url,
+                                actorId: user.id
                             }
                         });
                     }
@@ -313,6 +314,7 @@ export async function updateIssue(issueId: string, data: any, orgSlug: string, p
                             type: 'ASSIGNMENT',
                             message: `<strong>${user.name}</strong> assigned <strong>${issue.key}</strong> to you`,
                             url: `/${orgSlug}/${projectKey}/board?issue=${issue.key}`,
+                            actorId: user.id
                         }
                     });
                 }
@@ -465,6 +467,7 @@ export async function inviteMember(values: z.infer<typeof inviteMemberSchema>) {
         });
 
         revalidatePath(`/`, 'layout');
+        revalidatePath(`/${org.slug}/settings`); // Revalidate the settings page to show new invite
 
         return { success: true, message: `Invitation sent to ${validatedValues.email}.` };
 
@@ -530,7 +533,7 @@ export async function acceptInvitation(token: string) {
 
         revalidatePath(`/`, 'layout');
 
-        const redirectUrl = org.projects[0] ? `/${org.slug}/${org.projects[0].key}` : `/${org.slug}`;
+        const redirectUrl = org.projects[0] ? `/${org.slug}/${org.projects[0].key}` : `/dashboard`;
 
 
         return { success: true, organizationSlug: org.slug, redirectUrl };
@@ -543,6 +546,95 @@ export async function acceptInvitation(token: string) {
              return { success: false, error: "You are already a member of this organization." };
         }
         console.error("Failed to accept invitation:", error);
+        return { success: false, error: "An unknown error occurred." };
+    }
+}
+
+
+export async function updateMemberRole(memberId: string, role: string) {
+    const user = await getSession();
+    if (!user) {
+        return { success: false, error: "Not authenticated" };
+    }
+
+    if (!['ADMIN', 'MEMBER'].includes(role)) {
+        return { success: false, error: "Invalid role specified." };
+    }
+
+    try {
+        const memberToUpdate = await db.organizationMember.findUnique({
+            where: { id: memberId },
+            include: { organization: true }
+        });
+
+        if (!memberToUpdate) {
+            return { success: false, error: "Member not found." };
+        }
+        
+        const currentUserMember = await db.organizationMember.findFirst({
+            where: { userId: user.id, organizationId: memberToUpdate.organizationId }
+        });
+
+        if (!currentUserMember || !['OWNER', 'ADMIN'].includes(currentUserMember.role)) {
+            return { success: false, error: "You do not have permission to change roles." };
+        }
+
+        if (memberToUpdate.organization.ownerId === memberToUpdate.userId) {
+            return { success: false, error: "The organization owner's role cannot be changed." };
+        }
+
+        await db.organizationMember.update({
+            where: { id: memberId },
+            data: { role: role as 'ADMIN' | 'MEMBER' }
+        });
+
+        revalidatePath(`/${memberToUpdate.organization.slug}/settings`);
+        return { success: true };
+
+    } catch(error) {
+        console.error("Failed to update member role:", error);
+        return { success: false, error: "An unknown error occurred." };
+    }
+}
+
+
+export async function removeMember(memberId: string) {
+    const user = await getSession();
+    if (!user) {
+        return { success: false, error: "Not authenticated" };
+    }
+
+    try {
+        const memberToRemove = await db.organizationMember.findUnique({
+            where: { id: memberId },
+            include: { organization: true }
+        });
+
+        if (!memberToRemove) {
+            return { success: false, error: "Member not found." };
+        }
+        
+        const currentUserMember = await db.organizationMember.findFirst({
+            where: { userId: user.id, organizationId: memberToRemove.organizationId }
+        });
+
+        if (!currentUserMember || !['OWNER', 'ADMIN'].includes(currentUserMember.role)) {
+            return { success: false, error: "You do not have permission to remove members." };
+        }
+
+        if (memberToRemove.organization.ownerId === memberToRemove.userId) {
+            return { success: false, error: "The organization owner cannot be removed." };
+        }
+
+        await db.organizationMember.delete({
+            where: { id: memberId }
+        });
+
+        revalidatePath(`/${memberToRemove.organization.slug}/settings`);
+        return { success: true };
+
+    } catch(error) {
+        console.error("Failed to remove member:", error);
         return { success: false, error: "An unknown error occurred." };
     }
 }
